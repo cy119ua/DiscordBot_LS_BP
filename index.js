@@ -94,13 +94,17 @@ client.on(Events.MessageCreate, async (message) => {
     try {
         // Check admin permissions for admin commands
         if (command.adminOnly && !isAdmin(message.member)) {
+            console.log(`❌ User ${message.author.username} lacks admin permissions for ${commandName}`);
             return message.reply('❌ You need Administrator permissions to use this command.');
         }
         
         // Execute command
+        console.log(`🚀 Executing command "${commandName}" for user ${message.author.username}`);
         await command.execute(message, args, client);
+        console.log(`✅ Command "${commandName}" completed successfully`);
     } catch (error) {
-        console.error('Command execution error:', error);
+        console.error('❌ Command execution error:', error);
+        console.error('Error stack:', error.stack);
         message.reply('❌ There was an error executing this command.');
     }
 });

@@ -8,23 +8,31 @@ const config = require('../config');
  */
 async function findOrCreateLogChannel(guild) {
     try {
+        console.log(`🔍 Looking for log channel "${config.logging.channelName}" in guild: ${guild.name}`);
+        
         // Try to find existing channel
         let channel = guild.channels.cache.find(ch => 
             ch.name === config.logging.channelName && ch.type === ChannelType.GuildText
         );
         
-        // Create channel if it doesn't exist
-        if (!channel) {
-            channel = await guild.channels.create({
-                name: config.logging.channelName,
-                type: ChannelType.GuildText,
-                topic: 'Battle Pass Bot Logs - Automatic logging of bot activities'
-            });
+        if (channel) {
+            console.log(`✅ Found existing log channel: ${channel.name}`);
+            return channel;
         }
+        
+        // Create channel if it doesn't exist
+        console.log(`📝 Creating new log channel: ${config.logging.channelName}`);
+        channel = await guild.channels.create({
+            name: config.logging.channelName,
+            type: ChannelType.GuildText,
+            topic: 'Battle Pass Bot Logs - Automatic logging of bot activities'
+        });
+        console.log(`✅ Successfully created log channel: ${channel.name}`);
         
         return channel;
     } catch (error) {
-        console.error('Error finding/creating log channel:', error);
+        console.error('❌ Error finding/creating log channel:', error);
+        console.error('Error details:', error.message);
         return null;
     }
 }
