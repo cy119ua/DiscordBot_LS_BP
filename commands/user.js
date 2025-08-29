@@ -4,6 +4,25 @@ const { logAction } = require('../utils/logger');
 const { EmbedBuilder } = require('discord.js');
 
 const userCommands = {
+    testlog: {
+        name: 'testlog',
+        description: 'Test log channel creation',
+        async execute(message, args, client) {
+            try {
+                console.log(`🧪 Testing log channel creation for user ${message.author.username}`);
+                await logAction('milestone', message.guild, {
+                    user: message.author,
+                    level: 1,
+                    totalXP: 100
+                });
+                message.reply('✅ Log test completed! Check console logs and #bp-logs channel.');
+            } catch (error) {
+                console.error('Test log error:', error);
+                message.reply('❌ Error during log test.');
+            }
+        }
+    },
+    
     promo: {
         name: 'promo',
         description: 'Redeem a promo code',
