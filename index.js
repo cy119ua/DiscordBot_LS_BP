@@ -48,19 +48,38 @@ client.once(Events.ClientReady, async () => {
 
 // Message event handler for prefix commands
 client.on(Events.MessageCreate, async (message) => {
+    // Debug logging
+    console.log(`📨 Message received: "${message.content}" from ${message.author.username}`);
+    
     // Ignore bot messages
-    if (message.author.bot) return;
+    if (message.author.bot) {
+        console.log(`🤖 Ignoring bot message`);
+        return;
+    }
     
     // Check if message starts with prefix
-    if (!message.content.startsWith(config.prefix)) return;
+    if (!message.content.startsWith(config.prefix)) {
+        console.log(`❌ Message doesn't start with prefix "${config.prefix}"`);
+        return;
+    }
+    
+    console.log(`✅ Valid command detected`);
     
     // Parse command and arguments
     const args = message.content.slice(config.prefix.length).trim().split(/ +/);
     const commandName = args.shift().toLowerCase();
     
+    console.log(`🔍 Looking for command: "${commandName}"`);
+    console.log(`📋 Available commands: ${Array.from(commands.keys()).join(', ')}`);
+    
     // Get command
     const command = commands.get(commandName);
-    if (!command) return;
+    if (!command) {
+        console.log(`❌ Command "${commandName}" not found`);
+        return;
+    }
+    
+    console.log(`✅ Executing command: "${commandName}"`);
     
     try {
         // Check admin permissions for admin commands
