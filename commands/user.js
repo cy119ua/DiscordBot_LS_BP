@@ -4,6 +4,28 @@ const { logAction } = require('../utils/logger');
 const { EmbedBuilder } = require('discord.js');
 
 const userCommands = {
+    checkperms: {
+        name: 'checkperms',
+        description: 'Check your permissions',
+        async execute(message, args, client) {
+            const { isAdmin } = require('../utils/permissions');
+            const hasAdmin = isAdmin(message.member);
+            
+            console.log(`🔍 Permission check for ${message.author.username}: ${hasAdmin ? 'ADMIN' : 'USER'}`);
+            
+            const embed = new EmbedBuilder()
+                .setColor(hasAdmin ? 0x00ff00 : 0xff9900)
+                .setTitle('🔐 Permission Check')
+                .addFields(
+                    { name: 'Administrator', value: hasAdmin ? '✅ Yes' : '❌ No', inline: true },
+                    { name: 'Can Use Admin Commands', value: hasAdmin ? '✅ Yes' : '❌ No', inline: true }
+                )
+                .setTimestamp();
+            
+            message.reply({ embeds: [embed] });
+        }
+    },
+    
     testlog: {
         name: 'testlog',
         description: 'Test log channel creation',
@@ -35,17 +57,26 @@ const userCommands = {
             const userId = message.author.id;
             
             try {
+                console.log(`🎟️ User ${message.author.username} trying to redeem code: ${code}`);
+                
                 // Get promo code data
                 const promoData = await getPromoCode(code);
+                console.log(`📋 Promo data found:`, promoData ? 'YES' : 'NO');
                 
                 if (!promoData) {
+                    console.log(`❌ Promo code ${code} not found in database`);
                     return message.reply('❌ Invalid promo code.');
                 }
                 
+                console.log(`⏰ Checking expiration: expires ${promoData.expirationDate}, now ${new Date().toISOString()}`);
+                
                 // Check if expired
                 if (isCodeExpired(promoData)) {
+                    console.log(`❌ Promo code ${code} is expired`);
                     return message.reply('❌ This promo code has expired.');
                 }
+                
+                console.log(`✅ Promo code ${code} is valid and not expired`);
                 
                 // Check if user already used this code
                 if (await hasUserUsedPromo(code, userId)) {

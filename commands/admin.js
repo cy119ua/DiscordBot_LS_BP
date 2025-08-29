@@ -352,10 +352,13 @@ const adminCommands = {
             }
             
             try {
+                console.log(`🎟️ Creating promo code: ${code} with ${days} days duration`);
                 const expirationDate = new Date();
                 expirationDate.setDate(expirationDate.getDate() + days);
+                console.log(`📅 Expiration date set to: ${expirationDate.toISOString()}`);
                 
                 const success = await createPromoCode(code, { xp, tokens }, expirationDate);
+                console.log(`💾 Promo code creation result: ${success}`);
                 
                 if (success) {
                     const embed = new EmbedBuilder()
