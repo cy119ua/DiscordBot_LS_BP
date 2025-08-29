@@ -15,7 +15,13 @@ async function createPromoCode(code, rewards, expirationDate) {
             createdAt: new Date().toISOString()
         };
         
+        console.log(`💾 Storing promo data:`, JSON.stringify(promoData, null, 2));
         await global.db.set(`promo_${code.toUpperCase()}`, promoData);
+        
+        // Verify it was stored correctly
+        const verification = await global.db.get(`promo_${code.toUpperCase()}`);
+        console.log(`🔍 Verification - stored data:`, JSON.stringify(verification, null, 2));
+        
         return true;
     } catch (error) {
         console.error('Error creating promo code:', error);
@@ -30,7 +36,9 @@ async function createPromoCode(code, rewards, expirationDate) {
  */
 async function getPromoCode(code) {
     try {
-        return await global.db.get(`promo_${code.toUpperCase()}`);
+        const data = await global.db.get(`promo_${code.toUpperCase()}`);
+        console.log(`🔍 Retrieved promo data for ${code}:`, JSON.stringify(data, null, 2));
+        return data;
     } catch (error) {
         console.error('Error getting promo code:', error);
         return null;
