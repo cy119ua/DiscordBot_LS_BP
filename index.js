@@ -25,8 +25,18 @@ global.db = db;
 // Command collections
 const commands = new Collection();
 
-// Load commands
-Object.assign(commands, battlepassCommands, adminCommands, userCommands);
+// Load commands properly into Collection
+const allCommands = { ...battlepassCommands, ...adminCommands, ...userCommands };
+for (const [commandName, commandData] of Object.entries(allCommands)) {
+    commands.set(commandName, commandData);
+}
+
+// Debug: Show loaded commands
+console.log('🔧 Loading commands...');
+console.log('📦 Battlepass commands:', Object.keys(battlepassCommands));
+console.log('⚡ Admin commands:', Object.keys(adminCommands));
+console.log('👤 User commands:', Object.keys(userCommands));
+console.log('✅ Total commands loaded:', commands.size);
 
 // Bot ready event
 client.once(Events.ClientReady, async () => {
