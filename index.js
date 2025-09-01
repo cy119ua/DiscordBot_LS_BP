@@ -1,10 +1,10 @@
-require('dotenv').config(); // ← добавили, чтобы читать .env
+require('dotenv').config();
 
-const { Client, GatewayIntentBits, Collection, Events, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, Events } = require('discord.js');
 const Database = require('@replit/database');
 const config = require('./config');
 const { isAdmin } = require('./utils/permissions');
-const { findOrCreateLogChannel, logAction } = require('./utils/logger');
+const { handleBattlePassInteraction } = require('./utils/battlepassUtils');
 const battlepassCommands = require('./commands/battlepass');
 const adminCommands = require('./commands/admin');
 const userCommands = require('./commands/user');
@@ -32,51 +32,6 @@ const allCommands = { ...battlepassCommands, ...adminCommands, ...userCommands }
 for (const [commandName, commandData] of Object.entries(allCommands)) {
     commands.set(commandName, commandData);
 }
-
-const { Events } = require('discord.js');
-const { isAdmin } = require('./utils/permissions');
-const { handleBattlePassInteraction } = require('./utils/battlepassUtils');
-const config = require('./config');
-
-// === Обработка обычных текстовых команд ===
-client.on(Events.MessageCreate, async (message) => {
-  if (message.author.bot) return; // игнорируем ботов
-  if (!message.content.startsWith(config.prefix)) return;
-
-  const args = message.content.slice(config.prefix.length).trim().split(/\s+/);
-  const commandName = args.shift().toLowerCase();
-
-  const command = commands.get(commandName);
-  if (!command) return;
-
-  // Проверка прав (если команда только для админов)
-  if (command.adminOnly && !isAdmin(message.member)) {
-    return message.reply('❌ У вас нет прав для использования этой команды.');
-  }
-
-  try {
-    await command.execute(message, args, client);
-  } catch (error) {
-    console.error('Ошибка выполнения команды:', error);
-    message.reply('❌ Ошибка при выполнении команды.');
-  }
-});
-
-// === Обработка кнопок (баттл-пасс) ===
-client.on(Events.InteractionCreate, async (interaction) => {
-  try {
-    if (interaction.isButton()) {
-      await handleBattlePassInteraction(interaction, client, global.db);
-    }
-  } catch (error) {
-    console.error('Ошибка обработки взаимодействия:', error);
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({ content: '❌ Ошибка при обработке кнопки.', ephemeral: true });
-    } else {
-      await interaction.reply({ content: '❌ Ошибка при обработке кнопки.', ephemeral: true });
-    }
-  }
-});
 
 
 // Debug: Show loaded commands
@@ -106,70 +61,43 @@ client.once(Events.ClientReady, async () => {
 
 // Message event handler for prefix commands
 client.on(Events.MessageCreate, async (message) => {
-    // Debug logging
-    console.log(`📨 Message received: "${message.content}" from ${message.author.username}`);
-    
     // Ignore bot messages
-    if (message.author.bot) {
-        console.log(`🤖 Ignoring bot message`);
-        return;
-    }
+    if (message.author.bot) return;
     
     // Check if message starts with prefix
-    if (!message.content.startsWith(config.prefix)) {
-        console.log(`❌ Message doesn't start with prefix "${config.prefix}"`);
-        return;
-    }
-    
-    console.log(`✅ Valid command detected`);
+    if (!message.content.startsWith(config.prefix)) return;
     
     // Parse command and arguments
-    const args = message.content.slice(config.prefix.length).trim().split(/ +/);
+    const args = message.content.slice(config.prefix.length).trim().split(/\s+/);
     const commandName = args.shift().toLowerCase();
-    
-    console.log(`🔍 Looking for command: "${commandName}"`);
-    console.log(`📋 Available commands: ${Array.from(commands.keys()).join(', ')}`);
     
     // Get command
     const command = commands.get(commandName);
-    if (!command) {
-        console.log(`❌ Command "${commandName}" not found`);
-        return;
-    }
-    
-    console.log(`✅ Executing command: "${commandName}"`);
+    if (!command) return;
     
     try {
         // Check admin permissions for admin commands
         if (command.adminOnly && !isAdmin(message.member)) {
-            console.log(`❌ User ${message.author.username} lacks admin permissions for ${commandName}`);
             return message.reply('❌ You need Administrator permissions to use this command.');
         }
         
         // Execute command
-        console.log(`🚀 Executing command "${commandName}" for user ${message.author.username}`);
         await command.execute(message, args, client);
-        console.log(`✅ Command "${commandName}" completed successfully`);
     } catch (error) {
-        console.error('❌ Command execution error:', error);
-        console.error('Error stack:', error.stack);
+        console.error('Command execution error:', error);
         message.reply('❌ There was an error executing this command.');
     }
 });
 
-// Button interaction handler
+// Button interaction handler for battle pass
 client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isButton()) return;
     
     try {
-        // Handle battle pass navigation
-        if (interaction.customId.startsWith('bp_page_')) {
-            const { handleBattlePassInteraction } = require('./utils/battlepassUtils');
-            await handleBattlePassInteraction(interaction);
-        }
+        await handleBattlePassInteraction(interaction, client, global.db);
     } catch (error) {
         console.error('Button interaction error:', error);
-        if (!interaction.replied) {
+        if (!interaction.replied && !interaction.deferred) {
             await interaction.reply({ content: '❌ There was an error processing your request.', ephemeral: true });
         }
     }
@@ -185,7 +113,12 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // Login to Discord
-const token = process.env.DISCORD_TOKEN || 'your_bot_token_here';
+const token = process.env.DISCORD_TOKEN;
+if (!token) {
+    console.error('❌ DISCORD_TOKEN environment variable is required');
+    process.exit(1);
+}
+
 client.login(token).catch(error => {
     console.error('❌ Failed to login to Discord:', error);
     process.exit(1);
