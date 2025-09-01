@@ -1,3 +1,5 @@
+require('dotenv').config(); // ← добавили, чтобы читать .env
+
 const { Client, GatewayIntentBits, Collection, Events, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const Database = require('@replit/database');
 const config = require('./config');
@@ -30,6 +32,52 @@ const allCommands = { ...battlepassCommands, ...adminCommands, ...userCommands }
 for (const [commandName, commandData] of Object.entries(allCommands)) {
     commands.set(commandName, commandData);
 }
+
+const { Events } = require('discord.js');
+const { isAdmin } = require('./utils/permissions');
+const { handleBattlePassInteraction } = require('./utils/battlepassUtils');
+const config = require('./config');
+
+// === Обработка обычных текстовых команд ===
+client.on(Events.MessageCreate, async (message) => {
+  if (message.author.bot) return; // игнорируем ботов
+  if (!message.content.startsWith(config.prefix)) return;
+
+  const args = message.content.slice(config.prefix.length).trim().split(/\s+/);
+  const commandName = args.shift().toLowerCase();
+
+  const command = commands.get(commandName);
+  if (!command) return;
+
+  // Проверка прав (если команда только для админов)
+  if (command.adminOnly && !isAdmin(message.member)) {
+    return message.reply('❌ У вас нет прав для использования этой команды.');
+  }
+
+  try {
+    await command.execute(message, args, client);
+  } catch (error) {
+    console.error('Ошибка выполнения команды:', error);
+    message.reply('❌ Ошибка при выполнении команды.');
+  }
+});
+
+// === Обработка кнопок (баттл-пасс) ===
+client.on(Events.InteractionCreate, async (interaction) => {
+  try {
+    if (interaction.isButton()) {
+      await handleBattlePassInteraction(interaction, client, global.db);
+    }
+  } catch (error) {
+    console.error('Ошибка обработки взаимодействия:', error);
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({ content: '❌ Ошибка при обработке кнопки.', ephemeral: true });
+    } else {
+      await interaction.reply({ content: '❌ Ошибка при обработке кнопки.', ephemeral: true });
+    }
+  }
+});
+
 
 // Debug: Show loaded commands
 console.log('🔧 Loading commands...');
