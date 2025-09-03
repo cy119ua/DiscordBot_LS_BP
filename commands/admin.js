@@ -65,64 +65,26 @@ const adminCommands = {
     
     xpinvite: {
         name: 'xpinvite',
-        description: 'Add invite XP to a user',
+        description: 'Добавить 100 XP и +1 invite пользователю (с премиум-множителем)',
         adminOnly: true,
-        async execute(message, args, client) {
-            if (args.length < 2) {
-                return message.reply('❌ Usage: `!xpinvite <@user> <amount>`');
-            }
-            
-            const userMention = args[0];
-            const amount = parseInt(args[1]);
-            
-            if (isNaN(amount) || amount <= 0) {
-                return message.reply('❌ Please provide a valid XP amount.');
-            }
-            
-            const userId = userMention.replace(/[<@!>]/g, '');
-            const targetUser = await client.users.fetch(userId).catch(() => null);
-            
-            if (!targetUser) {
-                return message.reply('❌ User not found.');
-            }
-            
-            try {
-                const result = await addXP(userId, amount, 'invite');
-                
-                // Update invite count
-                const userData = await getUser(userId);
-                userData.invites += 1;
-                await setUser(userId, userData);
-                
-                // Check for level milestone
-                await checkLevelMilestone(result.oldLevel, result.newLevel, targetUser, message.guild);
-                
-                // Log the action
-                await logAction('xpInvite', message.guild, {
-                    admin: message.author,
-                    target: targetUser,
-                    amount: result.xpGained,
-                    oldLevel: result.oldLevel,
-                    newLevel: result.newLevel
-                });
-                
-                const embed = new EmbedBuilder()
-                    .setColor(0x0099ff)
-                    .setTitle('✅ Invite XP Added')
-                    .setDescription(`Added **${result.xpGained} XP** to ${targetUser} for inviting`)
-                    .addFields(
-                        { name: 'Level Progress', value: `${result.oldLevel} → ${result.newLevel}`, inline: true },
-                        { name: 'Total Invites', value: userData.invites.toString(), inline: true }
-                    )
-                    .setTimestamp();
-                
-                message.reply({ embeds: [embed] });
-            } catch (error) {
-                console.error('Invite XP add error:', error);
-                message.reply('❌ There was an error adding invite XP.');
-            }
-        }
-    },
+        async execute(message, args) {
+        // !xpinvite @user   (без второго аргумента; по умолчанию +100)
+         const { addXP, getUser, setUser } = require('../database/userManager');
+
+         if (!args[0]) return message.reply('❌ Использование: `!xpinvite @user`');
+         const userId = args[0].replace(/[<@!>]/g, '');
+
+        const base = 100; // по ТЗ — фиксированные 100
+        const res = await addXP(userId, base, 'invite'); // внутри addXP применится premium +10%
+
+            // +1 к счётчику приглашений
+        const u = await getUser(userId);
+        u.invites = (u.invites || 0) + 1;
+        await setUser(userId, u);
+        return message.reply(`✅ <@${userId}> получил +${res.xpGained} XP за приглашение (итого: ${u.xp}) и +1 invite.`);
+    }
+},
+
     
     xpset: {
         name: 'xpset',
@@ -179,79 +141,36 @@ const adminCommands = {
     },
     
     gpset: {
-        name: 'gpset',
-        description: 'Set user to premium status',
-        adminOnly: true,
-        async execute(message, args, client) {
-            if (args.length < 1) {
-                return message.reply('❌ Usage: `!gpset <@user>`');
-            }
-            
-            const userMention = args[0];
-            const userId = userMention.replace(/[<@!>]/g, '');
-            const targetUser = await client.users.fetch(userId).catch(() => null);
-            
-            if (!targetUser) {
-                return message.reply('❌ User not found.');
-            }
-            
-            try {
-                const userData = await getUser(userId);
-                userData.premium = true;
-                await setUser(userId, userData);
-                
-                const embed = new EmbedBuilder()
-                    .setColor(0xffd700)
-                    .setTitle('✅ Premium Status Set')
-                    .setDescription(`${targetUser} now has premium status!`)
-                    .setTimestamp();
-                
-                message.reply({ embeds: [embed] });
-            } catch (error) {
-                console.error('Premium set error:', error);
-                message.reply('❌ There was an error setting premium status.');
-            }
-        }
-    },
-    
+    name: 'gpset',
+    description: 'Set raffle points for a user',
+      adminOnly: true,
+      async execute(message, args, client) {
+        if (args.length < 2) return message.reply('❌ Usage: `!gpset <@user> <points>`');
+        const userId = args[0].replace(/[<@!>]/g, '');
+        const points = parseInt(args[1]);
+        if (isNaN(points) || points < 0) return message.reply('❌ Invalid points');
+        const userData = await getUser(userId);
+        userData.rafflePoints = points;
+        await setUser(userId, userData);
+        return message.reply(`✅ Raffle points set to **${points}** for <@${userId}>`);
+    }
+},
+
     ddset: {
-        name: 'ddset',
-        description: 'Set global double stake status',
-        adminOnly: true,
-        async execute(message, args, client) {
-            if (args.length < 1) {
-                return message.reply('❌ Usage: `!ddset <on|off>`');
-            }
-            
-            const status = args[0].toLowerCase();
-            
-            if (status !== 'on' && status !== 'off') {
-                return message.reply('❌ Please specify "on" or "off".');
-            }
-            
-            try {
-                const enabled = status === 'on';
-                await setDoubleStake(enabled);
-                
-                // Log the action
-                await logAction('doubleStake', message.guild, {
-                    admin: message.author,
-                    enabled
-                });
-                
-                const embed = new EmbedBuilder()
-                    .setColor(enabled ? 0x00ff00 : 0xff0000)
-                    .setTitle('✅ Double Stake Updated')
-                    .setDescription(`Global double stake is now **${enabled ? 'ENABLED' : 'DISABLED'}**`)
-                    .setTimestamp();
-                
-                message.reply({ embeds: [embed] });
-            } catch (error) {
-                console.error('Double stake set error:', error);
-                message.reply('❌ There was an error updating double stake status.');
-            }
+        name: 'ddset', adminOnly: true, description: 'Set user DD tokens',
+        async execute(message, args) {
+            if (args.length < 2) return message.reply('❌ Usage: `!ddset <@user> <amount>`');
+            const userId = args[0].replace(/[<@!>]/g, '');
+            const amount = parseInt(args[1]);
+            if (isNaN(amount) || amount < 0) return message.reply('❌ Invalid amount');
+            const userData = await getUser(userId);
+            userData.doubleTokens = amount;
+            await setUser(userId, userData);
+            await logAction('doubleStake', message.guild, { admin: message.author, enabled: true, amount, target: { toString:()=>`<@${userId}>` }});
+            return message.reply(`✅ Set **${amount}** DD tokens for <@${userId}>`);
         }
     },
+
     
     ddstart: {
         name: 'ddstart',
@@ -309,79 +228,87 @@ const adminCommands = {
     
     bpstat: {
         name: 'bpstat',
-        description: 'View battle pass statistics',
+        description: 'Показать статистику БП для @user (или себя, если не указан)',
         adminOnly: true,
-        async execute(message, args, client) {
-            try {
-                const doubleStake = await getDoubleStake();
-                
-                const embed = new EmbedBuilder()
-                    .setColor(0x9932cc)
-                    .setTitle('📊 Battle Pass Statistics')
-                    .addFields(
-                        { name: 'Global Double Stake', value: doubleStake ? '🟢 Active' : '🔴 Inactive', inline: true },
-                        { name: 'Max Level', value: '100', inline: true },
-                        { name: 'Premium Multiplier', value: '1.1x', inline: true }
-                    )
-                    .setTimestamp();
-                
-                message.reply({ embeds: [embed] });
-            } catch (error) {
-                console.error('Battle pass stats error:', error);
-                message.reply('❌ There was an error getting battle pass statistics.');
+        async execute(message, args) {
+            const { EmbedBuilder } = require('discord.js');
+            const { getUser, calculateLevel, calculateXPProgress } = require('../database/userManager');
+            const userId = args[0]?.replace(/[<@!>]/g, '') || message.author.id;
+            const u = await getUser(userId);
+            const lvl = calculateLevel(u.xp || 0);
+            const prog = calculateXPProgress(u.xp || 0); // ожидается { current, next, progress: "xx%" }
+            const embed = new EmbedBuilder()
+            .setColor(0x9932cc)
+            .setTitle('📊 Battle Pass — статистика')
+            .addFields(
+        { name: 'Пользователь', value: `<@${userId}>`, inline: true },
+        { name: 'Уровень', value: String(lvl), inline: true },
+        { name: 'XP', value: `${u.xp || 0} (${prog.progress})`, inline: true },
+        { name: 'DD-жетоны', value: String(u.doubleTokens || 0), inline: true },
+        { name: 'Очки розыгрыша', value: String(u.rafflePoints || 0), inline: true },
+        { name: 'Инвайты', value: String(u.invites || 0), inline: true },
+        { name: 'Премиум', value: u.premium ? '⭐ Активен' : '🆓 Нет', inline: true }
+      )
+      .setTimestamp();
+      return message.reply({ embeds: [embed] });
+    }
+},
+
+    
+    setcode: {
+        name: 'setcode',
+        description: 'Создать промокод: !setcode CODE TTL_MIN XP [MAX_USES]',
+        adminOnly: true,
+        async execute(message, args) {
+            const { createPromoCode } = require('../database/promoManager');
+
+            if (args.length < 3) {
+                return message.reply('❌ Использование: `!setcode CODE TTL_MIN XP [MAX_USES]`');
             }
+            const [raw, ttlStr, xpStr, maxStr] = args;
+            const code = String(raw).toUpperCase();
+            const ttlMin = parseInt(ttlStr, 10);
+            const xp = parseInt(xpStr, 10);
+            const maxUses = maxStr ? parseInt(maxStr, 10) : 0;
+            if (!Number.isFinite(ttlMin) || ttlMin < 0 || !Number.isFinite(xp) || xp < 0) {
+                return message.reply('❌ Неверные параметры. Пример: `!setcode 1234 60 100 15`');
+            }
+            const expiresAt = ttlMin ? new Date(Date.now() + ttlMin * 60_000) : null;
+            await createPromoCode(code, { xp }, expiresAt, maxUses);
+            return message.reply(`✅ Промокод **${code}**: +${xp} XP, TTL ${ttlMin} мин, лимит ${maxUses || '∞'}`);
         }
     },
-    
-    promocreate: {
-        name: 'promocreate',
-        description: 'Create a new promo code',
+
+    premiumon: {
+        name: 'premiumon',
+        description: 'Включить премиум пользователю',
         adminOnly: true,
-        async execute(message, args, client) {
-            if (args.length < 4) {
-                return message.reply('❌ Usage: `!promocreate <code> <xp> <tokens> <days>`');
-            }
-            
-            const code = args[0].toUpperCase();
-            const xp = parseInt(args[1]);
-            const tokens = parseInt(args[2]);
-            const days = parseInt(args[3]);
-            
-            if (isNaN(xp) || isNaN(tokens) || isNaN(days) || xp < 0 || tokens < 0 || days <= 0) {
-                return message.reply('❌ Please provide valid numbers for XP, tokens, and days.');
-            }
-            
-            try {
-                console.log(`🎟️ Creating promo code: ${code} with ${days} days duration`);
-                const expirationDate = new Date();
-                expirationDate.setDate(expirationDate.getDate() + days);
-                console.log(`📅 Expiration date set to: ${expirationDate.toISOString()}`);
-                
-                const success = await createPromoCode(code, { xp, tokens }, expirationDate);
-                console.log(`💾 Promo code creation result: ${success}`);
-                
-                if (success) {
-                    const embed = new EmbedBuilder()
-                        .setColor(0x00ff00)
-                        .setTitle('✅ Promo Code Created')
-                        .addFields(
-                            { name: 'Code', value: code, inline: true },
-                            { name: 'XP Reward', value: xp.toString(), inline: true },
-                            { name: 'Token Reward', value: tokens.toString(), inline: true },
-                            { name: 'Expires', value: expirationDate.toDateString(), inline: false }
-                        )
-                        .setTimestamp();
-                    
-                    message.reply({ embeds: [embed] });
-                } else {
-                    message.reply('❌ There was an error creating the promo code.');
-                }
-            } catch (error) {
-                console.error('Promo create error:', error);
-                message.reply('❌ There was an error creating the promo code.');
-            }
+        async execute(message, args) {
+            const { getUser, setUser } = require('../database/userManager');
+            if (!args[0]) return message.reply('❌ Использование: `!premiumon @user`');
+            const userId = args[0].replace(/[<@!>]/g, '');
+            const u = await getUser(userId);
+            u.premium = true;
+            u.premium_since = new Date().toISOString(); // пригодится, если будешь учитывать момент покупки
+            await setUser(userId, u);
+            return message.reply(`✅ Премиум включён для <@${userId}>`);
         }
-    }
+    },
+    premiumoff: {
+        name: 'premiumoff',
+        description: 'Выключить премиум пользователю',
+        adminOnly: true,
+        async execute(message, args) {
+            const { getUser, setUser } = require('../database/userManager');
+            if (!args[0]) return message.reply('❌ Использование: `!premiumoff @user`');
+            const userId = args[0].replace(/[<@!>]/g, '');
+            const u = await getUser(userId);
+            u.premium = false;
+            await setUser(userId, u);
+            return message.reply(`✅ Премиум выключен для <@${userId}>`);
+        }
+    },
+
 };
 
 module.exports = adminCommands;
