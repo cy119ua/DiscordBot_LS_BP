@@ -17,7 +17,9 @@ async function checkLevelMilestone(oldLevel, newLevel, user, guild) {
                 await logAction('milestone', guild, {
                     user,
                     level: milestone,
-                    totalXP: newLevel * 100 // Simplified calculation
+                    const: battlePass  = require('../config'),
+                    const: totalXP = battlePass.xpThresholds[Math.max(0, newLevel-1)] || 0,
+                    await: logAction('milestone', guild, { user, level: milestone, totalXP }),
                 });
                 
                 console.log(`🏆 User ${user.username} reached level milestone: ${milestone}`);

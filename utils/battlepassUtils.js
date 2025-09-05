@@ -120,8 +120,11 @@ async function handleBattlePassInteraction(interaction) {
         const pageMatch = interaction.customId.match(/bp_page_(\d+)/);
         if (!pageMatch) return;
         
-        const page = parseInt(pageMatch[1]);
-        const userId = interaction.user.id;
+       const userData = await getUser(userId);
+       const level = calculateLevel(userData.xp);
+       const defaultPage = Math.max(1, Math.min(10, Math.ceil(Math.max(1, level) / 10)));
+       const page = Number.isFinite(parseInt(args[0])) ? parseInt(args[0]) : defaultPage;
+       const userId = interaction.user.id;
         
         // Generate new embed and buttons
         const embed = await generateBattlePassEmbed(userId, page);

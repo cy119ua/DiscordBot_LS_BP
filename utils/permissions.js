@@ -1,15 +1,17 @@
-const { PermissionFlagsBits } = require('discord.js');
+// utils/permissions.js
+async function isWhitelisted(member) {
+  const { getSettings } = require('../database/settingsManager');
+  const s = await getSettings(member.guild.id);
 
-/**
- * Check if member has administrator permissions
- * @param {GuildMember} member - Discord guild member
- * @returns {boolean} True if member has admin permissions
- */
-function isAdmin(member) {
-    if (!member || !member.permissions) return false;
-    return member.permissions.has(PermissionFlagsBits.Administrator);
+  // Явный список пользователей
+  if (s.whitelistUsers?.includes(member.id)) return true;
+
+  // Роли
+  const roles = [...(member.roles?.cache?.keys?.() ? member.roles.cache.keys() : [])];
+  if (roles.some(r => s.whitelistRoles?.includes(r))) return true;
+
+  // Фолбэк: администратор
+  return member.permissions?.has?.('Administrator') || member.permissions?.has?.('Admin') || false;
 }
 
-module.exports = {
-    isAdmin
-};
+module.exports = { isWhitelisted };
