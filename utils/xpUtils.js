@@ -2,34 +2,25 @@ const config = require('../config');
 const { logAction } = require('./logger');
 
 /**
- * Check if user reached a level milestone and handle notification
- * @param {number} oldLevel - Previous level
- * @param {number} newLevel - New level
- * @param {User} user - Discord user object
- * @param {Guild} guild - Discord guild object
+ * Проверка достижения контрольных уровней (50/96/100) и логирование
+ * @param {number} oldLevel
+ * @param {number} newLevel
+ * @param {import('discord.js').User} user
+ * @param {import('discord.js').Guild} guild
  */
 async function checkLevelMilestone(oldLevel, newLevel, user, guild) {
-    try {
-        // Check if any milestone was reached
-        for (const milestone of config.xp.milestones) {
-            if (oldLevel < milestone && newLevel >= milestone) {
-                // Log milestone achievement
-                await logAction('milestone', guild, {
-                    user,
-                    level: milestone,
-                    const: battlePass  = require('../config'),
-                    const: totalXP = battlePass.xpThresholds[Math.max(0, newLevel-1)] || 0,
-                    await: logAction('milestone', guild, { user, level: milestone, totalXP }),
-                });
-                
-                console.log(`🏆 User ${user.username} reached level milestone: ${milestone}`);
-            }
-        }
-    } catch (error) {
-        console.error('Error checking level milestones:', error);
+  try {
+    const milestones = Array.isArray(config.xp?.milestones) ? config.xp.milestones : [50, 96, 100];
+    for (const milestone of milestones) {
+      if (oldLevel < milestone && newLevel >= milestone) {
+        const thresholds = config.battlePass?.xpThresholds || [];
+        const totalXP = thresholds[Math.max(0, milestone - 1)] || milestone * 100; // фолбэк
+        await logAction('milestone', guild, { user: { id: user.id, tag: user.tag }, level: milestone, totalXP });
+      }
     }
+  } catch (e) {
+    console.error('Error checking level milestones:', e);
+  }
 }
 
-module.exports = {
-    checkLevelMilestone
-};
+module.exports = { checkLevelMilestone };

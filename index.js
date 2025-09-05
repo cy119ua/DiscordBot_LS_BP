@@ -1,30 +1,25 @@
-// index.js — замените целиком
-
 require('dotenv').config();
 
 const { Client, GatewayIntentBits, Collection, Events } = require('discord.js');
 const Database = require('@replit/database');
 const config = require('./config');
 
-// Права: стараемся использовать whitelist, но безопасный фолбэк на isAdmin
+// Permissions: use whitelist if available, fall back to admin
 const permissions = require('./utils/permissions');
 const isAllowed = async (member) => {
   if (permissions && typeof permissions.isWhitelisted === 'function') {
-    return permissions.isWhitelisted(member);
+    try { return await permissions.isWhitelisted(member); } catch { /* ignore */ }
   }
-  if (permissions && typeof permissions.isAdmin === 'function') {
-    return permissions.isAdmin(member);
-  }
-  // крайний случай — просто проверка «админ»
-  return member?.permissions?.has?.('Administrator') || false;
+  if (member?.permissions?.has?.('Administrator')) return true;
+  return false;
 };
 
-// Модули с командами (могут экспортировать и служебные вещи вроде onButton)
+// Load command modules
 const battlepassModule = require('./commands/battlepass');
 const adminModule = require('./commands/admin');
 const userModule = require('./commands/user');
 
-// Инициализация Discord клиента
+// Discord client
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -33,17 +28,16 @@ const client = new Client({
   ]
 });
 
-// Инициализация БД (Replit)
+// DB init
 const db = new Database();
 global.db = db;
 
-// Собираем команды только из экспортов, где есть execute (и имя)
+// Collect commands from modules (only exports that have execute)
 function collectCommands(...modules) {
   const map = new Collection();
   for (const mod of modules) {
     for (const [exportName, value] of Object.entries(mod)) {
       if (value && typeof value.execute === 'function') {
-        // Пытаемся определить имя команды
         const name =
           (typeof value.name === 'string' && value.name) ||
           (typeof exportName === 'string' && exportName) ||
@@ -59,29 +53,19 @@ function collectCommands(...modules) {
 
 const commands = collectCommands(battlepassModule, adminModule, userModule);
 
-// Отладочная печать
 console.log('✅ Загружены команды:', [...commands.keys()].join(', ') || '(пусто)');
 
-// Готовность бота
 client.once(Events.ClientReady, async () => {
   console.log(`✅ Discord bot logged in as ${client.user.tag}`);
   console.log('🔗 Bot is ready and connected to Discord!');
-
-  // Если у тебя осталась логика инициализации каких-то глобальных ключей в БД — можешь оставить здесь.
-  // Пример ниже больше не обязателен после перехода на settingsManager (ddEnabled хранится на гильдию).
   try {
-    const globalData = (await db.get('global')) || {};
-    if (typeof globalData.doubleStake === 'undefined') {
-      globalData.doubleStake = false;
-      await db.set('global', globalData);
-    }
-    console.log('📊 Database initialized successfully');
+    console.log('📊 Database available');
   } catch (error) {
     console.error('❌ Database initialization error:', error);
   }
 });
 
-// Обработка префикс-команд
+// Prefix message commands
 client.on(Events.MessageCreate, async (message) => {
   try {
     if (message.author.bot) return;
@@ -92,12 +76,9 @@ client.on(Events.MessageCreate, async (message) => {
     const command = commands.get(commandName);
     if (!command) return;
 
-    // Проверка прав для adminOnly
     if (command.adminOnly) {
       const ok = await isAllowed(message.member);
-      if (!ok) {
-        return message.reply('⛔ Недостаточно прав (whitelist/admin).');
-      }
+      if (!ok) return message.reply('⛔ Недостаточно прав (whitelist/admin).');
     }
 
     await command.execute(message, args, client);
@@ -109,16 +90,16 @@ client.on(Events.MessageCreate, async (message) => {
   }
 });
 
-// Обработка кнопок (interactionCreate)
+// Button interactions
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
     if (interaction.isButton()) {
-      // Кнопки Боевого Пропуска
+      // Battle pass page buttons
       if (interaction.customId.startsWith('bp_page_')) {
         const { onButton } = require('./commands/battlepass');
         return onButton(interaction, client);
       }
-      // ... здесь можно добавить обработчики других кнопок в будущем
+      // other buttons can be handled here
     }
   } catch (error) {
     console.error('Button interaction error:', error);
@@ -131,7 +112,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
-// Общая обработка ошибок
 client.on('error', (error) => {
   console.error('Discord client error:', error);
 });
@@ -140,7 +120,6 @@ process.on('unhandledRejection', (reason) => {
   console.error('Unhandled promise rejection:', reason);
 });
 
-// Логин
 const token = process.env.DISCORD_TOKEN;
 if (!token) {
   console.error('❌ Переменная окружения DISCORD_TOKEN обязательна');
