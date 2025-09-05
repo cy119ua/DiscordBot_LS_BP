@@ -1,3 +1,4 @@
+ HEAD
 run = "cd DiscordBotDB && node index.js"
 modules = ["nodejs-20"]
 
@@ -10,6 +11,15 @@ run = ["sh", "-c", "cd DiscordBotDB && node index.js"]
 [agent]
 expertMode = true
 
+
+modules = ["nodejs-20"]
+[agent]
+expertMode = true
+
+[nix]
+channel = "stable-25_05"
+
+ 8618bfb29cc39882f0552db0abd7f88419e4b607
 [workflows]
 runButton = "Project"
 
@@ -28,7 +38,11 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
+<<<<<<< HEAD
 args = "cd DiscordBotDB && node index.js"
+=======
+args = "npm install && node index.js"
+>>>>>>> 8618bfb29cc39882f0552db0abd7f88419e4b607
 
 [workflows.workflow.metadata]
 outputType = "console"
