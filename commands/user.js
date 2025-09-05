@@ -45,113 +45,44 @@ const userCommands = {
         }
     },
     
-    promo: {
-        name: 'promo',
-        description: 'Redeem a promo code',
-        async execute(message, args, client) {
-            if (args.length < 1) {
-                return message.reply('❌ Usage: `!promo <code>`');
-            }
-            
-            const code = args[0].toUpperCase();
+    code: {
+        name: 'code',
+        description: 'Активировать промокод: !code ABC123',
+        async execute(message, args) {
+            const { getPromoCode, hasUserUsedPromo, isCodeExpired, markPromoCodeUsed } = require('../database/promoManager');
+            const { addXP, getUser, calculateLevel } = require('../database/userManager');
+            const { logAction } = require('../utils/logger');
+            if (!args[0]) return message.reply('❌ Укажи код: `!code ABC123`');
+            const code = String(args[0]).toUpperCase();
+            const promo = await getPromoCode(code);
+            if (!promo) return message.reply('❌ Неверный код'); // по ТЗ
             const userId = message.author.id;
-            
-            try {
-                console.log(`🎟️ User ${message.author.username} trying to redeem code: ${code}`);
-                
-                // Get promo code data
-                const promoData = await getPromoCode(code);
-                console.log(`📋 Promo data found:`, promoData ? 'YES' : 'NO');
-                
-                if (!promoData) {
-                    console.log(`❌ Promo code ${code} not found in database`);
-                    return message.reply('❌ Invalid promo code.');
+            if (await hasUserUsedPromo(code, userId)) {
+                return message.reply('❌ Вы уже использовали этот код');
+            }
+            if (isCodeExpired(promo)) {
+                return message.reply('❌ Промокод недействителен'); // по ТЗ
                 }
-                
-                console.log(`⏰ Checking expiration: expires ${promoData.expirationDate}, now ${new Date().toISOString()}`);
-                
-                // Check if expired
-                if (isCodeExpired(promoData)) {
-                    console.log(`❌ Promo code ${code} is expired`);
-                    return message.reply('❌ This promo code has expired.');
+                const before = await getUser(userId);
+                const oldLevel = calculateLevel(before.xp);
+                let gained = 0;
+                if (promo.rewards && Number.isFinite(promo.rewards.xp)) {
+                    const res = await addXP(userId, promo.rewards.xp, 'promo'); // применит премиум +10%
+                    gained = res.xpGained || 0;
                 }
-                
-                console.log(`✅ Promo code ${code} is valid and not expired`);
-                
-                // Check if user already used this code
-                if (await hasUserUsedPromo(code, userId)) {
-                    return message.reply('❌ You have already used this promo code.');
-                }
-                
-                // Get user data
-                const userData = await getUser(userId);
-                const oldLevel = calculateLevel(userData.xp);
-                
-                // Apply rewards
-                if (promoData.rewards.xp) {
-                    userData.xp += promoData.rewards.xp;
-                }
-                if (promoData.rewards.tokens) {
-                    userData.doubleTokens += promoData.rewards.tokens;
-                }
-                if (promoData.rewards.rafflePoints) {
-                    userData.rafflePoints += promoData.rewards.rafflePoints;
-                }
-                if (promoData.rewards.premium) {
-                    userData.premium = true;
-                }
-                
-                // Save user data
-                await setUser(userId, userData);
-                
-                // Mark code as used
                 await markPromoCodeUsed(code, userId);
-                
-                const newLevel = calculateLevel(userData.xp);
-                
-                // Log the action
+                const afterLevel = calculateLevel(before.xp + gained);
                 await logAction('promo', message.guild, {
                     user: message.author,
                     code,
-                    rewards: promoData.rewards,
+                    gainedXp: gained,
                     oldLevel,
-                    newLevel
+                    newLevel: afterLevel
                 });
-                
-                // Create response embed
-                const embed = new EmbedBuilder()
-                    .setColor(0xff9900)
-                    .setTitle('🎉 Promo Code Redeemed!')
-                    .setDescription(`Successfully redeemed code: **${code}**`)
-                    .setTimestamp();
-                
-                const rewardFields = [];
-                if (promoData.rewards.xp) {
-                    rewardFields.push({ name: 'XP Gained', value: promoData.rewards.xp.toString(), inline: true });
-                }
-                if (promoData.rewards.tokens) {
-                    rewardFields.push({ name: 'Tokens Gained', value: promoData.rewards.tokens.toString(), inline: true });
-                }
-                if (promoData.rewards.rafflePoints) {
-                    rewardFields.push({ name: 'Raffle Points', value: promoData.rewards.rafflePoints.toString(), inline: true });
-                }
-                if (promoData.rewards.premium) {
-                    rewardFields.push({ name: 'Premium Status', value: 'Granted!', inline: true });
-                }
-                
-                if (oldLevel !== newLevel) {
-                    rewardFields.push({ name: 'Level Up!', value: `${oldLevel} → ${newLevel}`, inline: false });
-                }
-                
-                embed.addFields(rewardFields);
-                
-                message.reply({ embeds: [embed] });
-            } catch (error) {
-                console.error('Promo redeem error:', error);
-                message.reply('❌ There was an error redeeming the promo code.');
+                return message.reply(`✅ Код принят: +${gained} XP`);
             }
-        }
-    },
+        },
+
     
     profile: {
         name: 'profile',
@@ -184,7 +115,63 @@ const userCommands = {
                 message.reply('❌ There was an error displaying your profile.');
             }
         }
+    },
+
+    usedd: {
+  name: 'usedd',
+  description: 'Активировать 1 или 2 жетона Double-Down',
+  async execute(message, args) {
+    try {
+      if (!message.guild) {
+        return message.reply('❌ Команда доступна только на сервере.');
+      }
+
+      const raw = (args?.[0] || '').trim();
+      const amount = Number.parseInt(raw, 10);
+      if (![1, 2].includes(amount)) {
+        return message.reply('❌ Использование: `!usedd 1` или `!usedd 2`');
+      }
+
+      // Проверка окна активности DD через settingsManager (вместо globalManager)
+      const { getSettings } = require('../database/settingsManager');
+      const s = await getSettings(message.guild.id);
+      if (!s.ddEnabled) {
+        return message.reply('❌ Double-Down сейчас недоступен.');
+      }
+
+      // Списываем жетоны пользователя
+      const userId = message.author.id;
+      const u = await getUser(userId);
+      const before = Number(u.doubleTokens || 0);
+      if (before < amount) {
+        return message.reply(`❌ Недостаточно жетонов (есть: ${before}, нужно: ${amount}).`);
+      }
+
+      const after = before - amount;
+      u.doubleTokens = after;
+      await setUser(userId, u);
+
+      // 1 жетон → x2, 2 жетона → x3
+      const multiplier = amount === 2 ? 3 : 2;
+
+      // Лог
+      await logAction('doubleStake', message.guild, {
+        user: { id: message.author.id, tag: message.author.tag },
+        amount,
+        multiplier,
+        beforeTokens: before,
+        afterTokens: after
+      });
+
+      return message.reply(`✅ Активировано: **x${multiplier}**. Списано ${amount} жетон(а). Осталось: ${after}.`);
+    } catch (e) {
+      console.error('usedd error:', e);
+      return message.reply('❌ Ошибка при активации Double-Down.');
     }
+  }
+}
+
+
 };
 
 module.exports = userCommands;
