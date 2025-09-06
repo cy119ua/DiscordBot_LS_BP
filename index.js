@@ -1,132 +1,68 @@
 require('dotenv').config();
 
-const { Client, GatewayIntentBits, Collection, Events } = require('discord.js');
+const { Client, GatewayIntentBits, Events } = require('discord.js');
 const Database = require('@replit/database');
-const config = require('./config');
 
-// Permissions: use whitelist if available, fall back to admin
-const permissions = require('./utils/permissions');
-const isAllowed = async (member) => {
-  if (permissions && typeof permissions.isWhitelisted === 'function') {
-    try { return await permissions.isWhitelisted(member); } catch { /* ignore */ }
-  }
-  if (member?.permissions?.has?.('Administrator')) return true;
-  return false;
-};
-
-// Load command modules
-const battlepassModule = require('./commands/battlepass');
-const adminModule = require('./commands/admin');
-const userModule = require('./commands/user');
-
-// Discord client
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
-});
-
-// DB init
+// === БД инициализируем ДО любых require модулей ===
 const db = new Database();
 global.db = db;
 
-// Collect commands from modules (only exports that have execute)
-function collectCommands(...modules) {
-  const map = new Collection();
-  for (const mod of modules) {
-    for (const [exportName, value] of Object.entries(mod)) {
-      if (value && typeof value.execute === 'function') {
-        const name =
-          (typeof value.name === 'string' && value.name) ||
-          (typeof exportName === 'string' && exportName) ||
-          null;
-        if (name) {
-          map.set(name.toLowerCase(), value);
-        }
-      }
-    }
-  }
-  return map;
-}
+// Права (whitelist → фолбэк на администратора)
+const { isWhitelisted } = require('./utils/permissions');
 
-const commands = collectCommands(battlepassModule, adminModule, userModule);
+// Подключаем только то, что нужно для slash
+const slashHandlers = require('./slash/handlers');
+const battlepass = require('./commands/battlepass'); // для обработчика кнопок страниц
 
-console.log('✅ Загружены команды:', [...commands.keys()].join(', ') || '(пусто)');
-
-client.once(Events.ClientReady, async () => {
-  console.log(`✅ Discord bot logged in as ${client.user.tag}`);
-  console.log('🔗 Bot is ready and connected to Discord!');
-  try {
-    console.log('📊 Database available');
-  } catch (error) {
-    console.error('❌ Database initialization error:', error);
-  }
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,         // slash-команды и кнопки
+    GatewayIntentBits.GuildMessages,  // пригодится для лог-канала/каналов
+  ],
 });
 
-// Prefix message commands
-client.on(Events.MessageCreate, async (message) => {
-  try {
-    if (message.author.bot) return;
-    if (!message.content.startsWith(config.prefix)) return;
-
-    const args = message.content.slice(config.prefix.length).trim().split(/\s+/);
-    const commandName = (args.shift() || '').toLowerCase();
-    const command = commands.get(commandName);
-    if (!command) return;
-
-    if (command.adminOnly) {
-      const ok = await isAllowed(message.member);
-      if (!ok) return message.reply('⛔ Недостаточно прав (whitelist/admin).');
-    }
-
-    await command.execute(message, args, client);
-  } catch (error) {
-    console.error('Command execution error:', error);
-    if (message && message.reply) {
-      message.reply('❌ Ошибка при выполнении команды.');
-    }
-  }
+client.once(Events.ClientReady, () => {
+  console.log(`✅ Logged in as ${client.user.tag}`);
+  console.log('✅ Slash commands:', Object.keys(slashHandlers).join(', ') || '(none)');
 });
 
-// Button interactions
+// Обработка интеракций: slash + кнопки
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
-    if (interaction.isButton()) {
-      // Battle pass page buttons
-      if (interaction.customId.startsWith('bp_page_')) {
-        const { onButton } = require('./commands/battlepass');
-        return onButton(interaction, client);
-      }
-      // other buttons can be handled here
+    // Кнопки страниц БП
+    if (interaction.isButton() && interaction.customId.startsWith('bp_page_')) {
+      return battlepass.onButton(interaction, client);
     }
-  } catch (error) {
-    console.error('Button interaction error:', error);
+
+    // Slash-команды
+    if (!interaction.isChatInputCommand()) return;
+
+    const handler = slashHandlers[interaction.commandName];
+    if (!handler) return;
+
+    // Проверка прав для админ-команд
+    if (handler.adminOnly) {
+      const allowed = await isWhitelisted(interaction.member);
+      if (!allowed) {
+        return interaction.reply({ content: '⛔ Недостаточно прав.', ephemeral: true });
+      }
+    }
+
+    await handler.run(interaction, client);
+  } catch (e) {
+    console.error('Interaction error:', e);
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: '❌ Ошибка при обработке взаимодействия.',
-        ephemeral: true
-      });
+      await interaction.reply({ content: '❌ Ошибка при обработке команды.', ephemeral: true });
     }
   }
-});
-
-client.on('error', (error) => {
-  console.error('Discord client error:', error);
-});
-
-process.on('unhandledRejection', (reason) => {
-  console.error('Unhandled promise rejection:', reason);
 });
 
 const token = process.env.DISCORD_TOKEN;
 if (!token) {
-  console.error('❌ Переменная окружения DISCORD_TOKEN обязательна');
+  console.error('❌ Переменная DISCORD_TOKEN не задана в .env');
   process.exit(1);
 }
-
-client.login(token).catch((error) => {
-  console.error('❌ Не удалось войти в Discord:', error);
+client.login(token).catch((e) => {
+  console.error('❌ Login error:', e);
   process.exit(1);
 });
