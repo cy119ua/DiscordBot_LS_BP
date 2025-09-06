@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const { getUser, setUser, addXP, calculateLevel, calculateXPProgress } = require('../database/userManager');
-const { getPromoCode, hasUserUsedPromo, isCodeExpired, markPromoCodeUsed } = require('../database/promoManager');
+const { getPromoCode, hasUserUsedPromo, isCodeExpired, markPromoCodeUsed, createPromoCode } = require('../database/promoManager');
 const { getSettings, patchSettings } = require('../database/settingsManager');
 const { logAction } = require('../utils/logger');
 const battlepass = require('../commands/battlepass');
@@ -100,18 +100,80 @@ const handlers = {
 
   bp: {
     async run(interaction) {
-      const pageOpt = interaction.options.getInteger('page', false);
+      // Всегда определяем страницу исходя из уровня пользователя. Листайте только кнопками.
       const { getUser, calculateLevel } = require('../database/userManager');
-
       const u = await getUser(interaction.user.id);
       const level = calculateLevel(u.xp || 0);
-      const defaultPage = Math.max(1, Math.min(10, Math.ceil(Math.max(1, level) / 10)));
-      const page = Number.isInteger(pageOpt) ? Math.max(1, Math.min(10, pageOpt)) : defaultPage;
-
+      const page = battlepass.defaultLevelToPage(level);
       const embed = battlepass.makeEmbed({ user: interaction.user, page, level, xp: u.xp || 0 });
       const components = battlepass.makePageButtons(page);
+      // Generate dynamic image if available
+      let files;
+      try {
+        // Provide total XP to compute progress within the current level
+        const imgAtt = await battlepass.generateImageAttachment(
+          { premium: u.premium, id: interaction.user.id },
+          page,
+          level,
+          u.xp || 0
+        );
+        if (imgAtt) {
+          embed.setImage(`attachment://${imgAtt.name}`);
+          files = [imgAtt];
+        }
+      } catch (e) {
+        // ignore
+      }
+      return replyPriv(interaction, { embeds: [embed], components, files });
+    }
+  },
 
-      return replyPriv(interaction, { embeds: [embed], components });
+  // Статистика боевого пропуска: уровень, XP и другие метрики
+  bpstat: {
+    async run(interaction) {
+      const target = interaction.options.getUser('user') || interaction.user;
+      const u = await getUser(target.id);
+      const level = calculateLevel(u.xp || 0);
+      const progress = calculateXPProgress(u.xp || 0);
+
+      const emb = new EmbedBuilder()
+        .setColor(u.premium ? 0xffd700 : 0x2b6cb0)
+        .setTitle(`BP-статистика — ${target.tag}`)
+        .addFields(
+          { name: 'Уровень', value: String(level), inline: true },
+          { name: 'XP', value: String(u.xp || 0), inline: true },
+          { name: 'Прогресс', value: progress.progress, inline: true },
+          { name: 'DD-жетоны', value: String(u.doubleTokens || 0), inline: true },
+          { name: 'Очки розыгрыша', value: String(u.rafflePoints || 0), inline: true },
+          { name: 'Инвайты', value: String(u.invites || 0), inline: true },
+          { name: 'Премиум', value: u.premium ? 'активен' : 'нет', inline: true }
+        )
+        .setFooter({ text: `ID: ${target.id}` });
+
+      return replyPriv(interaction, { embeds: [emb] });
+    }
+  },
+
+  // Создание промокода. Доступно только администраторам.
+  setcode: {
+    adminOnly: true,
+    async run(interaction) {
+      const codeStr = interaction.options.getString('code', true).toUpperCase();
+      const minutes = interaction.options.getInteger('minutes', true);
+      const xpAmount = interaction.options.getInteger('xp', true);
+      const limit = interaction.options.getInteger('limit', false) || 0;
+      const expiresAt = new Date(Date.now() + minutes * 60000);
+      await createPromoCode(codeStr, { xp: xpAmount }, expiresAt, limit);
+      await logAction('promo', interaction.guild, {
+        admin: { id: interaction.user.id, tag: interaction.user.tag },
+        code: codeStr,
+        gainedXp: xpAmount,
+        limit,
+        minutes
+      });
+      return replyPriv(interaction, {
+        content: `✅ Промокод \`${codeStr}\` создан: +${xpAmount} XP, срок ${minutes} мин., лимит ${limit || 'без ограничений'}.`
+      });
     }
   },
 
@@ -263,6 +325,10 @@ module.exports = {
   code: { run: handlers.code.run },
   usedd: { run: handlers.usedd.run },
   bp: { run: handlers.bp.run },
+
+  // Регистрация новых команд пользователя
+  bpstat: { run: handlers.bpstat.run },
+  setcode: { run: handlers.setcode.run, adminOnly: true },
 
   xp: { run: handlers.xp.run, adminOnly: true },
   xpset: { run: handlers.xpset.run, adminOnly: true },

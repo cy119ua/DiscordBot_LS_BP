@@ -1,3 +1,5 @@
 # Replit system files
 .local/
 .replit
+.env
+node_modules/

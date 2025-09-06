@@ -22,9 +22,13 @@ const commands = [
       { name: '1 (x2)', value: 1 }, { name: '2 (x3)', value: 2 }
     ]}
   ]},
-  { name: 'bp', description: 'Боевой пропуск (по уровню или страница)', options: [
-    { name: 'page', description: 'Страница (1..10)', type: 4, required: false, min_value: 1, max_value: 10 }
-  ]},
+  // /bp без параметров: страницы переключаются кнопками
+  { name: 'bp', description: 'Открыть боевой пропуск' },
+
+  // Статистика боевого пропуска (опционально для выбранного пользователя)
+  { name: 'bpstat', description: 'Показать BP-статистику', options: [
+    { name: 'user', description: 'Пользователь', type: 6, required: false } // USER
+  ] },
 
   // admin
   { name: 'xp', description: 'Добавить XP пользователю', options: [
@@ -56,7 +60,15 @@ const commands = [
   ]},
   { name: 'premiumoff', description: 'Выключить премиум', options: [
     { name: 'user', description: 'Пользователь', type: 6, required: true }
-  ]}
+  ] },
+
+  // Создать промокод (админ)
+  { name: 'setcode', description: 'Создать промокод (админ)', default_member_permissions: 8, options: [
+    { name: 'code', description: 'Код', type: 3, required: true },
+    { name: 'minutes', description: 'Время жизни (мин)', type: 4, required: true },
+    { name: 'xp', description: 'Сколько XP дает', type: 4, required: true },
+    { name: 'limit', description: 'Лимит использований (0 = без лимита)', type: 4, required: false }
+  ] }
 ];
 
 (async () => {

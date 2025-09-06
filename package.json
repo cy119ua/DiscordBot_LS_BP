@@ -10,7 +10,6 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@replit/database": "^3.0.1",
     "discord.js": "^14.22.1",
     "dotenv": "^17.2.2"
   }

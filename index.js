@@ -1,10 +1,13 @@
 require('dotenv').config();
 
 const { Client, GatewayIntentBits, Events } = require('discord.js');
-const Database = require('@replit/database');
+// Заменяем @replit/database на локальную реализацию базы данных
+// utils/db.js предоставляет класс Client, совместимый по API, сохраняющий
+// данные в файл db.json в папке data. Это упрощает локальный запуск без Replit.
+const { Client: DBClient } = require('./utils/db');
 
 // === БД инициализируем ДО любых require модулей ===
-const db = new Database();
+const db = new DBClient();
 global.db = db;
 
 // Права (whitelist → фолбэк на администратора)
