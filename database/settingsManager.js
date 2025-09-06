@@ -1,18 +1,21 @@
-// database/settingsManager.js
-const db = global.db;
-if (!db) throw new Error('global.db не инициализирован');
+function getDB(){ const db = global.db; if(!db) throw new Error('DB not initialized'); return db; }
+const skey = (g)=>`settings_${g}`;
 
-function key(guildId) { return `settings_${guildId}`; }
-
-async function getSettings(guildId) {
-  const s = await db.get(key(guildId));
-  return s || { logChannelId: null, ddEnabled: false, whitelistUsers: [], whitelistRoles: [] };
+async function getSettings(guildId){
+  const db = getDB();
+  const s = (await db.get(skey(guildId))) || {};
+  return {
+    logChannelId: s.logChannelId || null,
+    ddEnabled: !!s.ddEnabled,
+    whitelistUsers: Array.isArray(s.whitelistUsers) ? s.whitelistUsers : [],
+    whitelistRoles: Array.isArray(s.whitelistRoles) ? s.whitelistRoles : []
+  };
 }
-
-async function patchSettings(guildId, patch) {
-  const s = await getSettings(guildId);
-  const next = { ...s, ...patch };
-  await db.set(key(guildId), next);
+async function patchSettings(guildId, patch){
+  const db = getDB();
+  const curr = await getSettings(guildId);
+  const next = { ...curr, ...patch };
+  await db.set(skey(guildId), next);
   return next;
 }
 

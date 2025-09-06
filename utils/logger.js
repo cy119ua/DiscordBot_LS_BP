@@ -1,10 +1,9 @@
-// utils/logger.js
 async function logAction(action, guild, payload = {}) {
   try {
+    if (!guild) return;
     const { getSettings } = require('../database/settingsManager');
     const { EmbedBuilder } = require('discord.js');
 
-    if (!guild) return;
     const s = await getSettings(guild.id);
     if (!s.logChannelId) return;
 
@@ -19,9 +18,7 @@ async function logAction(action, guild, payload = {}) {
 
     await ch.send({ embeds: [embed] });
   } catch (e) {
-    // молча — чтобы логирование не падало логику бота
     console.error('logAction error:', e);
   }
 }
-
 module.exports = { logAction };
