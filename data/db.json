@@ -1,6 +1,6 @@
 {
   "user_656899242593484823": {
-    "xp": 350,
+    "xp": 440,
     "invites": 0,
     "rafflePoints": 2,
     "doubleTokens": 4,
@@ -13,5 +13,28 @@
     "ddEnabled": false,
     "whitelistUsers": [],
     "whitelistRoles": []
+  },
+  "promo_1477": {
+    "code": "1477",
+    "rewards": {
+      "xp": 100
+    },
+    "expiresAt": "2025-09-07T16:33:56.810Z",
+    "maxUses": 2,
+    "usedCount": 2,
+    "usedBy": [
+      "925482701723693196",
+      "656899242593484823"
+    ],
+    "createdAt": "2025-09-07T16:28:56.810Z"
+  },
+  "user_925482701723693196": {
+    "xp": 660,
+    "invites": 0,
+    "rafflePoints": 0,
+    "doubleTokens": 0,
+    "premium": true,
+    "premium_since": "2025-09-07T16:29:05.843Z",
+    "id": "925482701723693196"
   }
 }

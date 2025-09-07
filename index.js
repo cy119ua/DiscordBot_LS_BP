@@ -43,8 +43,21 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const handler = slashHandlers[interaction.commandName];
     if (!handler) return;
 
-    // Проверка прав для админ-команд
-    if (handler.adminOnly) {
+    /*
+     * Проверка прав для админ‑команд.
+     *
+     * По умолчанию, если команда помечена как `adminOnly` в файле описания,
+     * бот проверит, находится ли вызывающий участник в белом списке (роль
+     * администратора, whitelisted ID и т. д.). Ранее все команды с
+     * `adminOnly` требовали админских прав, что приводило к тому, что
+     * обычные пользователи не видели публичных слэш‑команд. Теперь
+     * поддерживается список команд, которые должны быть доступны всем
+     * пользователям, даже если в их обработчике указан `adminOnly`.
+     */
+    const publiclyAccessibleCommands = ['bp', 'code', 'usedd'];
+    const requiresAdmin = handler.adminOnly && !publiclyAccessibleCommands.includes(interaction.commandName);
+
+    if (requiresAdmin) {
       const allowed = await isWhitelisted(interaction.member);
       if (!allowed) {
         return interaction.reply({ content: '⛔ Недостаточно прав.', ephemeral: true });

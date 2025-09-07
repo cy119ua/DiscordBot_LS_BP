@@ -99,6 +99,7 @@ const handlers = {
   },
 
   bp: {
+    adminOnly: false,
     async run(interaction) {
       // Всегда определяем страницу исходя из уровня пользователя. Листайте только кнопками.
       const { getUser, calculateLevel } = require('../database/userManager');
@@ -324,7 +325,7 @@ module.exports = {
   profile: { run: handlers.profile.run },
   code: { run: handlers.code.run },
   usedd: { run: handlers.usedd.run },
-  bp: { run: handlers.bp.run },
+  bp: { run: handlers.bp.run, adminOnly: false },
 
   // Регистрация новых команд пользователя
   bpstat: { run: handlers.bpstat.run },

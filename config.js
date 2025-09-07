@@ -6,7 +6,7 @@ module.exports = {
     // Можно оставить пустым — код корректно отработает без картинок.
     imageUrls: {
       // Пример, если будут внешние ссылки на изображения:
-      // '1-10':  'https://example.com/bp/1-10.png',
+      // '1-10':  'https://cdn.discordapp.com/attachments/1413853448566210682/1413983446518337668/image.png?ex=68be92f4&is=68bd4174&hm=2dff59ddb0b1acba4c1130799a8794b494e071a6909bc1f5fa0b469065120489&',
       // '11-20': 'https://example.com/bp/11-20.png',
       // ...
       // '91-100': 'https://example.com/bp/91-100.png',
@@ -17,10 +17,16 @@ module.exports = {
     // оставить пустым, будет использован imageUrls либо fallback.
     imagePaths: {
       // пример заполнения:
-      // '1-10': 'assets/bp/1-10.png',
+       '1-10': 'assets/bp/1-10.png',
       // '11-20': 'assets/bp/11-20.png',
       // ...
       // '91-100': 'assets/bp/91-100.png'
+    },
+    progressBars: {
+      xPct: 17,        // отступ слева (обойти колонку 'FREE/PREM')
+      widthPct: 78,    // ширина области полосы
+      top:    { yPct: 11, heightPct: 3.2 }, // верхняя полоса (уровни 1–5)
+      bottom: { yPct: 92, heightPct: 3.2 }  // нижняя полоса (уровни 6–10)
     },
 
     // Порог XP на каждый уровень (1..100). Если оставить пустым,
