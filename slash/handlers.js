@@ -113,7 +113,7 @@ const handlers = {
       try {
         // Provide total XP to compute progress within the current level
         const imgAtt = await battlepass.generateImageAttachment(
-          { premium: u.premium, id: interaction.user.id },
+          u,
           page,
           level,
           u.xp || 0
@@ -123,6 +123,7 @@ const handlers = {
           files = [imgAtt];
         }
       } catch (e) {
+        console.error('[BP overlay error]', e?.message || e);
         // ignore
       }
       return replyPriv(interaction, { embeds: [embed], components, files });
@@ -328,7 +329,7 @@ module.exports = {
   bp: { run: handlers.bp.run, adminOnly: false },
 
   // Регистрация новых команд пользователя
-  bpstat: { run: handlers.bpstat.run },
+  bpstat: { run: handlers.bpstat.run, adminOnly: true },
   setcode: { run: handlers.setcode.run, adminOnly: true },
 
   xp: { run: handlers.xp.run, adminOnly: true },

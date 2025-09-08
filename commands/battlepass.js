@@ -84,8 +84,10 @@ async function onButton(interaction) {
   let files;
   try {
     // Делаем оверлей двух полос прогресса на ЛОКАЛЬНУЮ картинку страницы
+    // Передаём полный объект пользователя (u) в generateImageAttachment,
+    // чтобы скрипт мог отобразить дополнительные данные (инвайты, жетоны и т.п.)
     const imgAtt = await module.exports.generateImageAttachment(
-      { id: interaction.user.id, premium: u.premium },
+      u,
       page,
       level,
       u.xp || 0
@@ -139,11 +141,37 @@ module.exports.generateImageAttachment = async function(user, page, level, total
   const prog = calculateXPProgress(totalXP || 0);
   const levelFrac = (prog.neededXP > 0) ? (prog.currentXP / prog.neededXP) : 0;
 
+  // 2.1) Подготовка данных для информационных блоков (синий и красный).
+  // Не все данные о пользователе могут быть в переданном объекте, поэтому
+  // пытаемся загрузить полную запись пользователя из базы. Используем
+  // calculateXPProgress выше, чтобы вычислить current/needed XP.
+  let fullUser;
+  try {
+    // getUser доступен из userManager (импортирован в начале файла)
+    fullUser = await getUser(user.id);
+  } catch (e) {
+     console.error('[BP overlay error]', e?.message || e);
+    // fallback: используем переданный объект, если базы нет
+    fullUser = user || {};
+  }
+  // Текущий прогресс по XP в рамках уровня
+  const xpCurrent = prog.currentXP;
+  const xpNeeded  = prog.neededXP;
+  // Определяем статус премиума (1/0) и бонусные значения
+  const premiumFlag = fullUser.premium ? 1 : 0;
+  const invitesCount = Number(fullUser.invites || 0);
+  const doubleTokens = Number(fullUser.doubleTokens || 0);
+  const rafflePoints = Number(fullUser.rafflePoints || 0);
+
   // 3) Геометрия полос из конфигурации (в процентах от картинки)
   const bars = bp.progressBars || {
-    xPct: 17, widthPct: 78,
-    top: { yPct: 11, heightPct: 3.2 },
-    bottom: { yPct: 92, heightPct: 3.2 }
+    // Запасной план на случай, если конфигурация не определена. Значения
+    // подобраны под новую цветную разметку 1–10 (левая колонка FREE/PREM,
+    // правая белая область для инфо‑блоков).
+    xPct: 15,
+    widthPct: 67.5,
+    top: { yPct: 16, heightPct: 3.2 },
+    bottom: { yPct: 61, heightPct: 3.2 }
   };
 
   // 4) Путь к скрипту-оверлею
@@ -169,6 +197,20 @@ module.exports.generateImageAttachment = async function(user, page, level, total
     String(bars.bottom?.yPct ?? 92),
     String(bars.bottom?.heightPct ?? 3)
   ];
+
+  // 5.1) Добавляем дополнительные параметры для скрипта, если все данные присутствуют
+  // Передаём текущий уровень, текущий XP, необходимый XP, флаг премиума,
+  // количество инвайтов, жетонов двойной ставки и очков розыгрыша. Эти
+  // значения позволяют нарисовать текст в синем и красном блоках справа.
+  args.push(
+    String(level),
+    String(xpCurrent),
+    String(xpNeeded),
+    String(premiumFlag),
+    String(invitesCount),
+    String(doubleTokens),
+    String(rafflePoints)
+  );
 
   await new Promise((resolve, reject) => {
     execFile('python', [scriptPath, ...args], { timeout: 15000 }, (err, _so, se) => {
