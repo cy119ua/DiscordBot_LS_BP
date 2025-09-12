@@ -1,0 +1,105 @@
+name: Publish minimal branch
+
+on:
+  push:
+    branches: [ main ]
+    # запускаем только когда меняется то, что нужно для минималки
+    paths:
+      - 'package.json'
+      - 'index.js'
+      - 'main.js'
+      - 'config.js'
+      - 'slash/**'
+      - 'commands/**'
+      - 'scripts/**'
+      - 'database/**'
+      - 'utils/**'
+      - 'assets/**'
+      - '.github/workflows/minimal.yml'
+  workflow_dispatch: {}  # ручной запуск из вкладки Actions
+
+permissions:
+  contents: write  # нужно, чтобы пушить ветку minimal
+
+jobs:
+  build-minimal:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # чтобы свободно переключать/создавать ветки
+
+      - name: Create minimal tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf _keep && mkdir -p _keep
+
+          # --- файлы верхнего уровня ---
+          cp -f package.json _keep/ || true
+          for f in index.js main.js config.js .env.example README.md; do
+            [ -f "$f" ] && cp -f "$f" _keep/ || true
+          done
+
+          # --- папки с кодом ---
+          for d in slash commands scripts database utils; do
+            [ -d "$d" ] && cp -r "$d" "_keep/$d" || true
+          done
+
+          # ЯВНО удаляем из минималки "тяжёлый" JDK (он не нужен для бота)
+          rm -rf "_keep/slash/oracleJdk-24" || true
+
+          # --- ассеты (только то, что нужно в рантайме) ---
+          mkdir -p _keep/assets/fonts _keep/assets/images
+          if [ -d assets/fonts ]; then
+            cp -f assets/fonts/*.ttf _keep/assets/fonts/ 2>/dev/null || true
+          fi
+          if [ -d assets/images ]; then
+            # Вариант A: забрать все изображения целиком
+            cp -r assets/images _keep/assets/ 2>/dev/null || true
+            # Вариант B (строже): оставить конкретные файлы
+            # mkdir -p _keep/assets/images
+            # cp -f assets/images/bp_base.png _keep/assets/images/ || true
+          fi
+
+          # --- заменяем рабочее дерево на минимальный набор ---
+          find . -mindepth 1 -maxdepth 1 ! -name ".git" ! -name "_keep" -exec rm -rf {} +
+          cp -r _keep/* .
+          rm -rf _keep
+
+          # --- .gitignore, чтобы ветка не пухла ---
+          cat > .gitignore <<'EOF'
+          node_modules/
+          .env
+          .env.*.local
+          *.log
+          tmp/
+          temp/
+          dist/
+          build/
+          coverage/
+          .vscode/
+          .idea/
+          .DS_Store
+          Thumbs.db
+          slash/oracleJdk-24/
+          EOF
+
+          # --- Страховка: если вдруг просочился файл >95MB — завалим job ---
+          BIG=$(git ls-files -z | xargs -0 -I{} bash -lc 'sz=$(wc -c < "{}"); if [ $sz -gt $((95*1024*1024)) ]; then echo "{} ($sz bytes)"; fi')
+          if [ -n "$BIG" ]; then
+            echo "Large files detected in minimal branch:"
+            echo "$BIG"
+            exit 1
+          fi
+
+      - name: Commit to minimal branch
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Перезаписываем ветку минималкой
+          git checkout -B minimal
+          git add -A
+          git commit -m "chore: refresh minimal from main" || echo "no changes"
+          git push -f origin minimal
