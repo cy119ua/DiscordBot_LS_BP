@@ -1,1 +1,2 @@
+slash/oracleJdk-24/lib/modules filter=lfs diff=lfs merge=lfs -text
 slash/oracleJdk-24/** filter=lfs diff=lfs merge=lfs -text
