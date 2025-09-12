@@ -11,63 +11,107 @@ if (!TOKEN || !APP_ID || !GUILD_ID) {
   process.exit(1);
 }
 
+// Описание слэш‑команд. Имена команд должны быть в нижнем регистре без пробелов.
 const commands = [
-  // user
+  // Пользовательские команды
   { name: 'profile', description: 'Показать профиль' },
   { name: 'code', description: 'Активировать промокод', options: [
-    { name: 'value', description: 'Код', type: 3, required: true } // STRING
-  ]},
-  { name: 'usedd', description: 'Активировать жетоны Double-Down', options: [
-    { name: 'amount', description: '1 = x2, 2 = x3', type: 4, required: true, choices: [
-      { name: '1 (x2)', value: 1 }, { name: '2 (x3)', value: 2 }
-    ]}
-  ]},
-  // /bp без параметров: страницы переключаются кнопками
+    { name: 'value', description: 'Код', type: 3, required: true }
+  ] },
+  {
+    name: 'usedd',
+    description: 'Использовать даблжетоны для ставки на команду',
+    options: [
+      {
+        name: 'tokens',
+        description: 'Количество жетонов для ставки',
+        type: 4,
+        required: true,
+        min_value: 1,
+        max_value: 50
+      },
+      {
+        name: 'team',
+        description: 'Название команды (оставьте пустым для выбора из списка)',
+        type: 3,
+        required: false,
+        autocomplete: true
+      }
+    ]
+  },
   { name: 'bp', description: 'Открыть боевой пропуск' },
-
-  // Статистика боевого пропуска (опционально для выбранного пользователя)
-  { name: 'bpstat', description: 'Показать BP-статистику', options: [
-    { name: 'user', description: 'Пользователь', type: 6, required: false } // USER
+  { name: 'bpstat', description: 'Показать BP‑статистику', options: [
+    { name: 'user', description: 'Пользователь', type: 6, required: false }
   ] },
 
-  // admin
-  { name: 'xp', description: 'Добавить XP пользователю', options: [
-    { name: 'user', description: 'Пользователь', type: 6, required: true },  // USER
-    { name: 'amount', description: 'XP', type: 4, required: true }           // INTEGER
-  ]},
-  { name: 'xpset', description: 'Установить точный XP', options: [
+  // Административные команды
+  { name: 'xp', description: 'Добавить XP пользователю', default_member_permissions: 8, options: [
     { name: 'user', description: 'Пользователь', type: 6, required: true },
     { name: 'amount', description: 'XP', type: 4, required: true }
-  ]},
-  { name: 'xpinvite', description: 'Выдать +100 XP и +1 инвайт', options: [
-    { name: 'user', description: 'Пользователь', type: 6, required: true }
-  ]},
-  { name: 'gpset', description: 'Очки розыгрыша пользователю', options: [
+  ] },
+  { name: 'xpset', description: 'Установить точный XP', default_member_permissions: 8, options: [
     { name: 'user', description: 'Пользователь', type: 6, required: true },
-    { name: 'points', description: 'Очки', type: 4, required: true }
-  ]},
-  { name: 'ddset', description: 'Выдать DD-жетоны', options: [
-    { name: 'user', description: 'Пользователь', type: 6, required: true },
-    { name: 'amount', description: 'Жетоны', type: 4, required: true }
-  ]},
-  { name: 'ddstart', description: 'Открыть окно Double-Down' },
-  { name: 'ddstop', description: 'Закрыть окно Double-Down' },
-  { name: 'setlog', description: 'Установить лог-канал', options: [
-    { name: 'channel', description: 'Канал', type: 7, required: true } // CHANNEL
-  ]},
-  { name: 'premiumon', description: 'Включить премиум', options: [
-    { name: 'user', description: 'Пользователь', type: 6, required: true }
-  ]},
-  { name: 'premiumoff', description: 'Выключить премиум', options: [
+    { name: 'amount', description: 'XP', type: 4, required: true }
+  ] },
+  { name: 'xpinvite', description: 'Выдать +100 XP и +1 инвайт', default_member_permissions: 8, options: [
     { name: 'user', description: 'Пользователь', type: 6, required: true }
   ] },
-
-  // Создать промокод (админ)
-  { name: 'setcode', description: 'Создать промокод (админ)', default_member_permissions: 8, options: [
+  { name: 'gpset', description: 'Очки розыгрыша пользователю', default_member_permissions: 8, options: [
+    { name: 'user', description: 'Пользователь', type: 6, required: true },
+    { name: 'points', description: 'Очки', type: 4, required: true }
+  ] },
+  { name: 'ddset', description: 'Установить количество DD‑жетонов пользователю', default_member_permissions: 8, options: [
+    { name: 'user', description: 'Пользователь', type: 6, required: true },
+    { name: 'amount', description: 'Количество жетонов', type: 4, required: true }
+  ] },
+  { name: 'ddstart', description: 'Открыть окно Double‑Down', default_member_permissions: 8 },
+  { name: 'ddstop', description: 'Закрыть окно Double‑Down', default_member_permissions: 8 },
+  { name: 'setlog', description: 'Установить лог‑канал', default_member_permissions: 8, options: [
+    { name: 'channel', description: 'Канал', type: 7, required: true }
+  ] },
+  { name: 'premiumon', description: 'Включить премиум пользователю', default_member_permissions: 8, options: [
+    { name: 'user', description: 'Пользователь', type: 6, required: true }
+  ] },
+  { name: 'premiumoff', description: 'Выключить премиум пользователю', default_member_permissions: 8, options: [
+    { name: 'user', description: 'Пользователь', type: 6, required: true }
+  ] },
+  { name: 'setcode', description: 'Создать промокод', default_member_permissions: 8, options: [
     { name: 'code', description: 'Код', type: 3, required: true },
     { name: 'minutes', description: 'Время жизни (мин)', type: 4, required: true },
-    { name: 'xp', description: 'Сколько XP дает', type: 4, required: true },
+    { name: 'xp', description: 'Количество XP', type: 4, required: true },
     { name: 'limit', description: 'Лимит использований (0 = без лимита)', type: 4, required: false }
+  ] },
+
+  // Командный функционал
+  { name: 'teamcreate', description: 'Создать команду из 5 участников', default_member_permissions: 8, options: [
+    { name: 'name', description: 'Название команды', type: 3, required: true },
+    { name: 'player1', description: 'Участник #1', type: 6, required: true },
+    { name: 'player2', description: 'Участник #2', type: 6, required: true },
+    { name: 'player3', description: 'Участник #3', type: 6, required: true },
+    { name: 'player4', description: 'Участник #4', type: 6, required: true },
+    { name: 'player5', description: 'Участник #5', type: 6, required: true }
+  ] },
+  { name: 'teamchange', description: 'Заменить участника в команде', default_member_permissions: 8, options: [
+    { name: 'name', description: 'Название команды', type: 3, required: true, autocomplete: true },
+    { name: 'old', description: 'Участник которого меняют', type: 6, required: true },
+    { name: 'new', description: 'Новый участник', type: 6, required: true }
+  ] },
+  { name: 'teamdelete', description: 'Удалить команду', default_member_permissions: 8, options: [
+    { name: 'name', description: 'Название команды', type: 3, required: true, autocomplete: true }
+  ] },
+  { name: 'teamresult', description: 'Зафиксировать результат команды', default_member_permissions: 8, options: [
+    { name: 'name', description: 'Название команды', type: 3, required: true, autocomplete: true },
+    { name: 'result', description: 'Результат', type: 3, required: true, choices: [
+      { name: 'победа', value: 'win' },
+      { name: 'поражение', value: 'loss' },
+      { name: 'ничья', value: 'draw' }
+    ] }
+  ] },
+  { name: 'bethistory', description: 'История ставок участника', default_member_permissions: 8, options: [
+    { name: 'user', description: 'Участник', type: 6, required: true }
+  ] },
+  { name: 'teamhistory', description: 'История команд', default_member_permissions: 8, options: [
+    { name: 'name', description: 'Название команды', type: 3, required: false, autocomplete: true }
   ] }
 ];
 

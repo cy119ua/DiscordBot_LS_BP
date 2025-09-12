@@ -1,9 +1,9 @@
 {
   "user_656899242593484823": {
-    "xp": 333,
+    "xp": 999,
     "invites": 0,
     "rafflePoints": 2,
-    "doubleTokens": 4,
+    "doubleTokens": 1,
     "premium": true,
     "premium_since": "2025-09-06T23:18:25.876Z",
     "id": "656899242593484823"
@@ -36,5 +36,23 @@
     "premium": true,
     "premium_since": "2025-09-07T16:29:05.843Z",
     "id": "925482701723693196"
+  },
+  "user_406088091946844170": {
+    "xp": 0,
+    "invites": 0,
+    "rafflePoints": 0,
+    "doubleTokens": 3,
+    "premium": false,
+    "premium_since": null,
+    "id": "406088091946844170"
+  },
+  "user_585006069294563348": {
+    "xp": 0,
+    "invites": 0,
+    "rafflePoints": 0,
+    "doubleTokens": 2,
+    "premium": false,
+    "premium_since": null,
+    "id": "585006069294563348"
   }
 }

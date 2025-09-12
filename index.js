@@ -32,6 +32,89 @@ client.once(Events.ClientReady, () => {
 // Обработка интеракций: slash + кнопки
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
+    // Обработка выпадающих списков (StringSelectMenu) для пользовательских команд
+    if (interaction.isStringSelectMenu()) {
+      const customId = interaction.customId;
+      // Форма customId: usedd_team_select:<userId>:<tokens>
+      if (customId.startsWith('usedd_team_select:')) {
+        const parts = customId.split(':');
+        const userId = parts[1];
+        const tokensStr = parts[2];
+        const tokens = Number(tokensStr);
+        const selectedTeam = interaction.values[0];
+        // Только сам пользователь может подтвердить свой выбор
+        if (interaction.user.id !== userId) {
+          return interaction.reply({ content: '❌ Это меню не для вас.', ephemeral: true });
+        }
+        try {
+          // Импортируем необходимые менеджеры локально, чтобы избежать циклов
+          const { getSettings } = require('./database/settingsManager');
+          const { getTeam, getAllTeams } = require('./utils/teamManager');
+          const { getUser, setUser } = require('./database/userManager');
+          const { addBet } = require('./utils/betManager');
+          const { addBetHistory } = require('./utils/historyManager');
+          const { logAction } = require('./utils/logger');
+
+          // Проверяем включено ли окно DD
+          const settings = await getSettings(interaction.guild.id);
+          if (!settings.ddEnabled) {
+            return interaction.update({ content: '❌ Double-Down сейчас недоступен.', components: [] });
+          }
+          // Проверяем существование команды
+          const team = getTeam(selectedTeam);
+          if (!team) {
+            const names = Object.keys(getAllTeams());
+            const available = names.length ? names.map((n) => `**${n}**`).join(', ') : 'нет';
+            return interaction.update({ content: `❌ Команда **${selectedTeam}** не найдена. Доступные: ${available}.`, components: [] });
+          }
+          // Проверяем баланс жетонов
+          const userRecord = await getUser(userId);
+          const before = Number(userRecord.doubleTokens || 0);
+          if (before < tokens) {
+            return interaction.update({ content: `❌ Недостаточно жетонов: есть ${before}, требуется ${tokens}.`, components: [] });
+          }
+          // Списываем жетоны
+          userRecord.doubleTokens = before - tokens;
+          await setUser(userId, userRecord);
+          // Сохраняем ставку и историю
+          await addBet(userId, selectedTeam, tokens);
+          addBetHistory({ type: 'bet', userId, team: selectedTeam, tokens, members: team.members, xp: 0 });
+          // Логирование
+          await logAction('doubleStake', interaction.guild, {
+            user: { id: userId, tag: interaction.user.tag },
+            tokens,
+            team: selectedTeam,
+            beforeTokens: before,
+            afterTokens: userRecord.doubleTokens,
+          });
+          // Обновляем сообщение, убирая меню
+          return interaction.update({ content: `✅ Ставка принята: ${tokens} жетон(ов) на команду **${selectedTeam}**. Осталось жетонов: ${userRecord.doubleTokens}.`, components: [] });
+        } catch (e) {
+          console.error('usedd select error:', e);
+          return interaction.update({ content: '❌ Ошибка при обработке выбора команды.', components: [] });
+        }
+      }
+      // Если это другой select-меню, игнорируем, другие типы меню пока не используются
+    }
+
+    // Обработка автодополнения для параметров типа STRING
+    if (interaction.isAutocomplete()) {
+      try {
+        const focused = interaction.options.getFocused(true);
+        if (!focused) return;
+        const optionName = focused.name;
+        if (optionName === 'team' || optionName === 'name') {
+          const { getAllTeams } = require('./utils/teamManager');
+          const teams = getAllTeams();
+          const names = Object.keys(teams).slice(0, 25);
+          return interaction.respond(names.map((n) => ({ name: n, value: n })));
+        }
+      } catch (e) {
+        console.error('autocomplete error:', e);
+      }
+      return;
+    }
+
     // Кнопки страниц БП
     if (interaction.isButton() && interaction.customId.startsWith('bp_page_')) {
       return battlepass.onButton(interaction, client);

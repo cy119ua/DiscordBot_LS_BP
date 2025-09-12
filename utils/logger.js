@@ -14,6 +14,11 @@ function colorByType(type) {
     case 'promo': return Colors.Blue;
     case 'premiumChange': return Colors.Purple;
     case 'raffleSet': return Colors.Orange;
+    // Командный функционал
+    case 'teamCreate': return Colors.Green;
+    case 'teamChange': return Colors.Blurple;
+    case 'teamDelete': return Colors.Orange;
+    case 'teamResult': return Colors.Red;
     default: return Colors.Greyple;
   }
 }
@@ -58,6 +63,23 @@ async function logAction(type, guild, details = {}) {
     }
     if (typeof details.enabled !== 'undefined') lines.push(`**DD:** ${details.enabled ? 'включено' : 'выключено'}`);
     if (typeof details.premium !== 'undefined') lines.push(`**Премиум:** ${details.premium ? 'включён' : 'выключен'}`);
+
+    // Дополнительные поля для команд и ставок
+    if (details.name) lines.push(`**Команда:** ${details.name}`);
+    if (details.members && Array.isArray(details.members) && details.members.length) {
+      const formatted = details.members.map((id) => `<@${id}>`).join(', ');
+      lines.push(`**Участники:** ${formatted}`);
+    }
+    if (details.result) {
+      const map = { win: 'победа', loss: 'поражение', draw: 'ничья' };
+      lines.push(`**Результат:** ${map[details.result] || details.result}`);
+    }
+    if (details.oldMember) lines.push(`**Старый участник:** <@${details.oldMember}>`);
+    if (details.newMember) lines.push(`**Новый участник:** <@${details.newMember}>`);
+    if (typeof details.tokens !== 'undefined') lines.push(`**Жетоны:** ${details.tokens}`);
+    if (details.team) lines.push(`**Команда:** ${details.team}`);
+    if (typeof details.totalXp !== 'undefined') lines.push(`**Начислено XP:** ${details.totalXp}`);
+    if (typeof details.affected !== 'undefined') lines.push(`**Ставок обработано:** ${details.affected}`);
 
     embed.setDescription(lines.join('\n'));
     await channel.send({ embeds: [embed] });
