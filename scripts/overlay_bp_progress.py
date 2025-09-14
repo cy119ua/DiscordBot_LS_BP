@@ -3,13 +3,36 @@
 import os, sys
 from PIL import Image, ImageDraw, ImageFont
 
-GREEN   = (0, 200, 100, 170)  # полупрозрачный
-TEXTCOL = (25, 25, 25, 255)
+"""
+Настройка визуала полосы прогресса (настраивается без правки кода через env):
+- BP_BAR_R / BP_BAR_G / BP_BAR_B — цвет (0..255), по умолчанию голубой (64,128,255)
+- BP_BAR_ALPHA — прозрачность (0..255), по умолчанию 100 (хорошо видно картинку под полосой)
+- BP_BAR_RADIUS_PCT — скругление краёв как доля высоты (0..1), по умолчанию 0.3
+ВАЖНО: итоговое изображение сохраняется В RGB (без прозрачности), поэтому под
+полосой всегда видна именно «картинка страницы», а не интерфейс Discord.
+"""
+
+def _get_int_env(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, default))
+    except Exception:
+        return default
+
+BAR_BASE_R = _get_int_env('BP_BAR_R', 64)
+BAR_BASE_G = _get_int_env('BP_BAR_G', 128)
+BAR_BASE_B = _get_int_env('BP_BAR_B', 255)
+BAR_ALPHA  = _get_int_env('BP_BAR_ALPHA', 150)
+try:
+    BAR_RADIUS_PCT = float(os.environ.get('BP_BAR_RADIUS_PCT', '0.05'))
+except Exception:
+    BAR_RADIUS_PCT = 0.05
+
+BAR_RGBA = (BAR_BASE_R, BAR_BASE_G, BAR_BASE_B, BAR_ALPHA)
+TEXTCOL  = (25, 25, 25, 255)
 
 def clamp(v, a, b): return max(a, min(b, v))
 
 def load_font(size):
-    # универсальная загрузка без падений
     candidates = [
         "assets/fonts/DejaVuSans-Bold.ttf",
         "assets/fonts/DejaVuSans.ttf",
@@ -18,8 +41,8 @@ def load_font(size):
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
         "Arial.ttf","DejaVuSans.ttf","DejaVuSans-Bold.ttf",
-        r"C:\Windows\Fonts\arial.ttf", r"C:\Windows\Fonts\arialbd.ttf",
-        r"C:\Windows\Fonts\segoeui.ttf", r"C:\Windows\Fonts\tahoma.ttf"
+        r"C:\\Windows\\Fonts\\arial.ttf", r"C:\\Windows\\Fonts\\arialbd.ttf",
+        r"C:\\Windows\\Fonts\\segoeui.ttf", r"C:\\Windows\\Fonts\\tahoma.ttf"
     ]
     for p in candidates:
         try:
@@ -48,9 +71,6 @@ def _rounded_rect(draw, xy, radius, fill):
         draw.rectangle(xy, fill=fill)
 
 def draw_band(draw, bar_x, bar_w, y, hbar, band_start, cur_lvl, lvl_frac):
-    """Полоса поверх 5 ячеек ряда: заполняет высоту,
-    скруглённые концы, не выходит за рамки."""
-    # внутренний отступ ~3% высоты, чтобы точно не задевать рамку
     pad = max(2, int(hbar * 0.03))
     x0 = int(bar_x) + pad
     x_max = int(bar_x + bar_w) - pad
@@ -74,12 +94,10 @@ def draw_band(draw, bar_x, bar_w, y, hbar, band_start, cur_lvl, lvl_frac):
     x1 = int(x0 + seg_w * total_units + 0.5)
     if x1 > x_max: x1 = x_max
 
-    radius = max(2, int((y1 - y0) / 2))
-    _rounded_rect(draw, [x0, y0, x1, y1], radius, GREEN)
+    radius = max(2, int((y1 - y0) * max(0.0, min(1.0, BAR_RADIUS_PCT))))
+    _rounded_rect(draw, [x0, y0, x1, y1], radius, BAR_RGBA)
 
 def draw_info(draw, w, h, level, xp_cur, xp_need, is_premium, invites, dd_tokens, raffle):
-    """Информация в правом фиолетовом прямоугольнике (без переносов)."""
-    # Подогнано под макет 16:9. Эти проценты можно тонко подкрутить.
     panel_x_pct, panel_w_pct = 76.8, 20.2
     panel_y_pct, panel_h_pct = 7.5, 85.0
 
@@ -88,21 +106,19 @@ def draw_info(draw, w, h, level, xp_cur, xp_need, is_premium, invites, dd_tokens
     ww = int(w * panel_w_pct / 100.0)
     hh = int(h * panel_h_pct / 100.0)
 
-    # поля внутри панели
     pad_x = max(14, int(ww * 0.08))
     pad_y = max(14, int(hh * 0.08))
 
     lines = [
-        f"Уровень: {level}",
-        f"До след.: {max(0, (xp_need or 0) - (xp_cur or 0))}",
-        f"Статус: {'Премиум' if is_premium else 'Фри'}",
-        "",
-        f"Приглашения: {invites}",
-        f"Двойные ставки: {dd_tokens}",
-        f"Очки розыгрыша: {raffle}",
-    ]
+    f"Уровень: {level}",
+    f"До след.: {max(0, (xp_need or 0) - (xp_cur or 0))}",
+    f"Статус: {'Премиум' if bool(is_premium) else 'Фри'}",
+    "",
+    f"Приглашения: {invites}",
+    f"Двойные ставки: {dd_tokens}",
+    f"Очки розыгрыша: {raffle}",
+]
 
-    # Стартовый размер крупнее, затем уменьшаем пока всё не влезет
     size = max(22, int(hh * 0.10))
     font = load_font(size)
     spacing = int(size * 0.35)
@@ -119,7 +135,6 @@ def draw_info(draw, w, h, level, xp_cur, xp_need, is_premium, invites, dd_tokens
         spacing = int(size * 0.33)
         guard += 1
 
-    # Выводим
     y = y0 + pad_y
     for ln in lines:
         lw, lh = text_wh(draw, ln, font)
@@ -153,10 +168,11 @@ def main():
         dd      = int(sys.argv[17])
         raffle  = int(sys.argv[18])
 
-    from PIL import Image
-    img = Image.open(in_path).convert('RGBA')
-    w, h = img.size
-    draw = ImageDraw.Draw(img, 'RGBA')
+    base = Image.open(in_path).convert('RGBA')
+    w, h = base.size
+
+    overlay = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay, 'RGBA')
 
     bar_x = int(w * xPct / 100.0)
     bar_w = int(w * widthPct / 100.0)
@@ -174,7 +190,8 @@ def main():
     if level is not None:
         draw_info(draw, w, h, level, xp_cur, xp_need, premium, invites, dd, raffle)
 
-    img.save(out_path)
+    composed = Image.alpha_composite(base, overlay).convert('RGB')
+    composed.save(out_path)
 
 if __name__ == "__main__":
     main()
