@@ -46,9 +46,12 @@ const handlers = {
       const after = await getUser(userId);
       const newLevel = calculateLevel(after.xp || 0);
       const newProg = calculateXPProgress(after.xp || 0);
+      // Формируем строку изменения прогресса XP без повторения уровней. Вместо
+      // сообщений вида "L (cur/need) → L (cur/need)" оставляем только прогресс
+      // текущего уровня, а сами номера уровней будут отображаться отдельно.
       const xpChangeStr = resPromo
-        ? `${resPromo.oldLevel} (${resPromo.oldXPProgress?.progress || '0/100'}) → ${resPromo.newLevel} (${resPromo.newXPProgress?.progress || '0/100'})`
-        : `${oldLevel} (${oldProg.progress}) → ${newLevel} (${newProg.progress})`;
+        ? `${resPromo.oldXPProgress?.progress || '0/100'} → ${resPromo.newXPProgress?.progress || '0/100'}`
+        : `${oldProg.progress} → ${newProg.progress}`;
 
       await logAction('promo', interaction.guild, {
         user: { id: userId, tag: interaction.user.tag },
@@ -58,6 +61,45 @@ const handlers = {
         newLevel,
         xpChange: xpChangeStr
       });
+
+      // Логирование наград, полученных в результате повышения уровня по промокоду
+      // Сравниваем параметры до и после применения промокода
+      const diffDouble = (after.doubleTokens || 0) - (before.doubleTokens || 0);
+      const diffRaffle = (after.rafflePoints || 0) - (before.rafflePoints || 0);
+      const diffInvites = (after.invites || 0) - (before.invites || 0);
+      const diffPacks = (after.cardPacks || 0) - (before.cardPacks || 0);
+      if (diffDouble > 0) {
+        await logAction('bpReward', interaction.guild, {
+          user: { id: userId, tag: interaction.user.tag },
+          amount: diffDouble,
+          rewardType: 'doubleTokens',
+          level: newLevel
+        });
+      }
+      if (diffRaffle > 0) {
+        await logAction('bpReward', interaction.guild, {
+          user: { id: userId, tag: interaction.user.tag },
+          amount: diffRaffle,
+          rewardType: 'rafflePoints',
+          level: newLevel
+        });
+      }
+      if (diffInvites > 0) {
+        await logAction('bpReward', interaction.guild, {
+          user: { id: userId, tag: interaction.user.tag },
+          amount: diffInvites,
+          rewardType: 'invites',
+          level: newLevel
+        });
+      }
+      if (diffPacks > 0) {
+        await logAction('bpReward', interaction.guild, {
+          user: { id: userId, tag: interaction.user.tag },
+          amount: diffPacks,
+          rewardType: 'cardPacks',
+          level: newLevel
+        });
+      }
 
       return replyPriv(interaction, { content: `✅ Код принят: +${gained} XP` });
     }
@@ -151,7 +193,16 @@ const handlers = {
       const u = await getUser(interaction.user.id);
       const level = calculateLevel(u.xp || 0);
       const page = battlepass.defaultLevelToPage(level);
-      const embed = battlepass.makeEmbed({ user: interaction.user, page, level, xp: u.xp || 0 });
+      const embed = battlepass.makeEmbed({
+        user: interaction.user,
+        page,
+        level,
+        xp: u.xp || 0,
+        invites: u.invites || 0,
+        doubleTokens: u.doubleTokens || 0,
+        rafflePoints: u.rafflePoints || 0,
+        cardPacks: u.cardPacks || 0
+      });
       const components = battlepass.makePageButtons(page);
       let files;
       try {
@@ -186,6 +237,7 @@ const handlers = {
           { name: 'DD-жетоны', value: String(u.doubleTokens || 0), inline: true },
           { name: 'Очки розыгрыша', value: String(u.rafflePoints || 0), inline: true },
           { name: 'Инвайты', value: String(u.invites || 0), inline: true },
+          { name: 'Паки карт', value: String(u.cardPacks || 0), inline: true },
           { name: 'Премиум', value: u.premium ? 'активен' : 'нет', inline: true }
         )
         .setFooter({ text: `ID: ${target.id}` });
@@ -223,9 +275,14 @@ const handlers = {
     async run(interaction) {
       const user = interaction.options.getUser('user', true);
       const amount = interaction.options.getInteger('amount', true);
+      // Сохраняем состояние пользователя до начисления XP
+      const before = await getUser(user.id);
       const res = await addXP(user.id, amount, 'manual_admin');
+      const after = await getUser(user.id);
       // Формируем строку изменения опыта вида "L (cur/need) → L (cur/need)"
-      const xpChangeStr = `${res.oldLevel} (${res.oldXPProgress?.progress || '0/100'}) → ${res.newLevel} (${res.newXPProgress?.progress || '0/100'})`;
+      // Формируем строку прогресса без повторения номеров уровней. Номера уровней
+      // будут отображаться отдельно в логах. Пример: "35/100 → 20/100".
+      const xpChangeStr = `${res.oldXPProgress?.progress || '0/100'} → ${res.newXPProgress?.progress || '0/100'}`;
       await logAction('xpAdd', interaction.guild, {
         admin: { id: interaction.user.id, tag: interaction.user.tag },
         target: { id: user.id, tag: user.tag },
@@ -234,6 +291,45 @@ const handlers = {
         newLevel: res.newLevel,
         xpChange: xpChangeStr
       });
+      // Вычисляем разницу наград после повышения уровня
+      const diffDouble = (after.doubleTokens || 0) - (before.doubleTokens || 0);
+      const diffRaffle = (after.rafflePoints || 0) - (before.rafflePoints || 0);
+      const diffInvites = (after.invites || 0) - (before.invites || 0);
+      const diffPacks = (after.cardPacks || 0) - (before.cardPacks || 0);
+      const diffXP   = (after.xp || 0) - (before.xp || 0);
+      // Логируем каждую полученную награду отдельно
+      if (diffDouble > 0) {
+        await logAction('bpReward', interaction.guild, {
+          user: { id: user.id, tag: user.tag },
+          amount: diffDouble,
+          rewardType: 'doubleTokens',
+          level: res.newLevel
+        });
+      }
+      if (diffRaffle > 0) {
+        await logAction('bpReward', interaction.guild, {
+          user: { id: user.id, tag: user.tag },
+          amount: diffRaffle,
+          rewardType: 'rafflePoints',
+          level: res.newLevel
+        });
+      }
+      if (diffInvites > 0) {
+        await logAction('bpReward', interaction.guild, {
+          user: { id: user.id, tag: user.tag },
+          amount: diffInvites,
+          rewardType: 'invites',
+          level: res.newLevel
+        });
+      }
+      if (diffPacks > 0) {
+        await logAction('bpReward', interaction.guild, {
+          user: { id: user.id, tag: user.tag },
+          amount: diffPacks,
+          rewardType: 'cardPacks',
+          level: res.newLevel
+        });
+      }
       return replyPriv(interaction, { content: `✅ <@${user.id}> +${res.xpGained} XP (уровень ${res.oldLevel} → ${res.newLevel})` });
     }
   },
@@ -252,7 +348,10 @@ const handlers = {
       await setUser(user.id, u);
       const newLevel = calculateLevel(u.xp || 0);
       const newProg = calculateXPProgress(u.xp || 0);
-      const xpChangeStr = `${oldLevel} (${oldProg.progress}) → ${newLevel} (${newProg.progress})`;
+      // Формируем строку прогресса XP без повторения уровней, чтобы не дублировать
+      // информацию: выводим только прогресс текущего уровня в формате
+      // "curr/need → curr/need".
+      const xpChangeStr = `${oldProg.progress} → ${newProg.progress}`;
       await logAction('xpSet', interaction.guild, {
         admin: { id: interaction.user.id, tag: interaction.user.tag },
         target: { id: user.id, tag: user.tag },
@@ -269,18 +368,66 @@ const handlers = {
     adminOnly: true,
     async run(interaction) {
       const user = interaction.options.getUser('user', true);
+      // состояние до
+      const before = await getUser(user.id);
       const res = await addXP(user.id, 100, 'invite');
       const u = await getUser(user.id);
       u.invites = (u.invites || 0) + 1;
       await setUser(user.id, u);
+      // состояние после
+      const after = await getUser(user.id);
       // Формируем строку изменения XP для логов
-      const xpChangeStr = `${res.oldLevel} (${res.oldXPProgress?.progress || '0/100'}) → ${res.newLevel} (${res.newXPProgress?.progress || '0/100'})`;
+      // Формируем строку изменения прогресса XP без повторения уровней. Уровни
+      // будут отображаться отдельно в логах, так что здесь выводим только
+      // текущий прогресс (текущий XP / необходимый XP).
+      const xpChangeStr = `${res.oldXPProgress?.progress || '0/100'} → ${res.newXPProgress?.progress || '0/100'}`;
       await logAction('xpInvite', interaction.guild, {
         admin: { id: interaction.user.id, tag: interaction.user.tag },
         target: { id: user.id, tag: user.tag },
         gainedXp: res.xpGained,
         xpChange: xpChangeStr
       });
+      // вычисляем разницу наград
+      const diffDouble = (after.doubleTokens || 0) - (before.doubleTokens || 0);
+      const diffRaffle = (after.rafflePoints || 0) - (before.rafflePoints || 0);
+      const diffInvites = (after.invites || 0) - (before.invites || 0);
+      const diffPacks = (after.cardPacks || 0) - (before.cardPacks || 0);
+      if (diffDouble > 0) {
+        await logAction('bpReward', interaction.guild, {
+          user: { id: user.id, tag: user.tag },
+          amount: diffDouble,
+          rewardType: 'doubleTokens',
+          level: res.newLevel
+        });
+      }
+      if (diffRaffle > 0) {
+        await logAction('bpReward', interaction.guild, {
+          user: { id: user.id, tag: user.tag },
+          amount: diffRaffle,
+          rewardType: 'rafflePoints',
+          level: res.newLevel
+        });
+      }
+      if (diffInvites > 1) {
+        // one invite is manually added below; subtract 1 to get level reward invites
+        const rewardedInvites = diffInvites - 1;
+        if (rewardedInvites > 0) {
+          await logAction('bpReward', interaction.guild, {
+            user: { id: user.id, tag: user.tag },
+            amount: rewardedInvites,
+            rewardType: 'invites',
+            level: res.newLevel
+          });
+        }
+      }
+      if (diffPacks > 0) {
+        await logAction('bpReward', interaction.guild, {
+          user: { id: user.id, tag: user.tag },
+          amount: diffPacks,
+          rewardType: 'cardPacks',
+          level: res.newLevel
+        });
+      }
       return replyPriv(interaction, { content: `✅ <@${user.id}>: +${res.xpGained} XP и +1 invite.` });
     }
   },
@@ -312,6 +459,48 @@ const handlers = {
         admin: { id: interaction.user.id, tag: interaction.user.tag }, target: { id: user.id, tag: user.tag }, amount
       });
       return replyPriv(interaction, { content: `🎯 У <@${user.id}> установлено DD-жетонов: ${amount}.` });
+    }
+  },
+
+  /**
+   * Установить точное количество инвайтов пользователю.
+   * Опции: user (USER), amount (INTEGER)
+   */
+  invset: {
+    adminOnly: true,
+    async run(interaction) {
+      const user = interaction.options.getUser('user', true);
+      const amount = interaction.options.getInteger('amount', true);
+      const u = await getUser(user.id);
+      u.invites = amount;
+      await setUser(user.id, u);
+      await logAction('invitesSet', interaction.guild, {
+        admin: { id: interaction.user.id, tag: interaction.user.tag },
+        target: { id: user.id, tag: user.tag },
+        amount
+      });
+      return replyPriv(interaction, { content: `📨 У <@${user.id}> установлено инвайтов: ${amount}.` });
+    }
+  },
+
+  /**
+   * Установить точное количество паков карт пользователю.
+   * Опции: user (USER), amount (INTEGER)
+   */
+  cpset: {
+    adminOnly: true,
+    async run(interaction) {
+      const user = interaction.options.getUser('user', true);
+      const amount = interaction.options.getInteger('amount', true);
+      const u = await getUser(user.id);
+      u.cardPacks = amount;
+      await setUser(user.id, u);
+      await logAction('cardPacksSet', interaction.guild, {
+        admin: { id: interaction.user.id, tag: interaction.user.tag },
+        target: { id: user.id, tag: user.tag },
+        amount
+      });
+      return replyPriv(interaction, { content: `🃏 У <@${user.id}> установлено паков карт: ${amount}.` });
     }
   },
 
@@ -583,9 +772,12 @@ const handlers = {
         affected++;
         if (xpPerToken > 0) {
           const xpGain = xpPerToken * bet.tokens;
+          // Сохраняем состояние пользователя до начисления XP
+          const beforeU = await getUser(bet.userId);
           await addXP(bet.userId, xpGain, 'teamBet');
           totalXp += xpGain;
-
+          // Состояние после
+          const afterU = await getUser(bet.userId);
           // Запись в историю выплат
           addBetHistory({
             type: 'payout',
@@ -596,6 +788,46 @@ const handlers = {
             result,
             xp: xpGain
           });
+          // Разница наград по уровням
+          const diffDouble = (afterU.doubleTokens || 0) - (beforeU.doubleTokens || 0);
+          const diffRaffle = (afterU.rafflePoints || 0) - (beforeU.rafflePoints || 0);
+          const diffInvites = (afterU.invites || 0) - (beforeU.invites || 0);
+          const diffPacks = (afterU.cardPacks || 0) - (beforeU.cardPacks || 0);
+          const lvlNew = calculateLevel(afterU.xp || 0);
+          // Пользователь объекта для логов
+          const target = { id: bet.userId, tag: (await interaction.client.users.fetch(bet.userId)).tag };
+          if (diffDouble > 0) {
+            await logAction('bpReward', interaction.guild, {
+              user: target,
+              amount: diffDouble,
+              rewardType: 'doubleTokens',
+              level: lvlNew
+            });
+          }
+          if (diffRaffle > 0) {
+            await logAction('bpReward', interaction.guild, {
+              user: target,
+              amount: diffRaffle,
+              rewardType: 'rafflePoints',
+              level: lvlNew
+            });
+          }
+          if (diffInvites > 0) {
+            await logAction('bpReward', interaction.guild, {
+              user: target,
+              amount: diffInvites,
+              rewardType: 'invites',
+              level: lvlNew
+            });
+          }
+          if (diffPacks > 0) {
+            await logAction('bpReward', interaction.guild, {
+              user: target,
+              amount: diffPacks,
+              rewardType: 'cardPacks',
+              level: lvlNew
+            });
+          }
         }
       }
 
@@ -707,6 +939,10 @@ module.exports = {
   xpinvite: { run: handlers.xpinvite.run, adminOnly: true },
   gpset: { run: handlers.gpset.run, adminOnly: true },
   ddset: { run: handlers.ddset.run, adminOnly: true },
+  // Установка числа инвайтов (админ)
+  invset: { run: handlers.invset.run, adminOnly: true },
+  // Установка числа паков карт (админ)
+  cpset: { run: handlers.cpset.run, adminOnly: true },
   ddstart: { run: handlers.ddstart.run, adminOnly: true },
   ddstop: { run: handlers.ddstop.run, adminOnly: true },
   setlog: { run: handlers.setlog.run, adminOnly: true },

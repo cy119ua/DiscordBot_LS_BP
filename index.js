@@ -1,6 +1,7 @@
 require('dotenv').config();
 
-const { Client, GatewayIntentBits, Events } = require('discord.js');
+const { Client, GatewayIntentBits, Events, PermissionFlagsBits } = require('discord.js');
+const config = require('./config'); // для доступа к adminUsers
 // Заменяем @replit/database на локальную реализацию базы данных
 // utils/db.js предоставляет класс Client, совместимый по API, сохраняющий
 // данные в файл db.json в папке data. Это упрощает локальный запуск без Replit.
@@ -20,13 +21,87 @@ const battlepass = require('./commands/battlepass'); // для обработч�
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,         // slash-команды и кнопки
-    GatewayIntentBits.GuildMessages,  // пригодится для лог-канала/каналов
+    GatewayIntentBits.GuildMessages,  // лог‑каналы
+    GatewayIntentBits.GuildMembers    // необходим для управления ролями
   ],
 });
 
-client.once(Events.ClientReady, () => {
+/**
+ * Гарантирует наличие роли для whitelisted‑пользователей и выдаёт её. Роль
+ * имеет флаг Administrator, что позволяет whitelisted‑пользователям видеть
+ * скрытые slash‑команды (с default_member_permissions: '0'). Сама проверка
+ * доступа осуществляется в isWhitelisted(), поэтому другие администраторы
+ * сервера смогут увидеть команды, но не смогут их выполнить.
+ *
+ * @param {import('discord.js').Guild} guild
+ */
+async function ensureWhitelistAdminRole(guild) {
+  const roleName = 'LSBP Admin (auto)';
+  const me = guild.members.me;
+  // Проверяем, что у бота достаточно прав для управления ролями
+  if (!me.permissions.has(PermissionFlagsBits.ManageRoles)) {
+    throw new Error('Bot lacks Manage Roles permission');
+  }
+  // Ищем существующую роль
+  let role = guild.roles.cache.find((r) => r.name === roleName);
+  if (!role) {
+    // Создаём роль с правом Administrator, если у бота это право есть
+    const perms = me.permissions.has(PermissionFlagsBits.Administrator)
+      ? [PermissionFlagsBits.Administrator]
+      : [];
+    role = await guild.roles.create({
+      name: roleName,
+      permissions: perms,
+      reason: 'Role for whitelisted admins',
+    });
+  } else {
+    // Обновляем права роли: добавляем Administrator, если бот его имеет
+    if (
+      me.permissions.has(PermissionFlagsBits.Administrator) &&
+      !role.permissions.has(PermissionFlagsBits.Administrator)
+    ) {
+      await role.setPermissions([PermissionFlagsBits.Administrator]);
+    }
+  }
+  // Располагаем роль прямо под самой высокой ролью бота
+  const topBotRole = me.roles.highest;
+  if (topBotRole && role.position >= topBotRole.position) {
+    await role.setPosition(topBotRole.position - 1);
+  }
+  // Выдаём роль всем whitelisted‑пользователям
+  const ids = Array.isArray(config.adminUsers) ? config.adminUsers : [];
+  for (const id of ids) {
+    const member = await guild.members.fetch(id).catch(() => null);
+    if (!member) continue;
+    // Бот может управлять пользователем только если его высшая роль ниже роли бота
+    const canManage = me.roles.highest.comparePositionTo(member.roles.highest) > 0;
+    if (canManage && !member.roles.cache.has(role.id)) {
+      await member.roles.add(role, 'Grant whitelisted admin role');
+    }
+  }
+  // Убираем роль у тех, кто вышел из whitelist
+  for (const [, member] of role.members) {
+    if (!ids.includes(member.id)) {
+      const canManage = me.roles.highest.comparePositionTo(member.roles.highest) > 0;
+      if (canManage) {
+        await member.roles.remove(role, 'Remove whitelisted admin role');
+      }
+    }
+  }
+}
+
+client.once(Events.ClientReady, async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
   console.log('✅ Slash commands:', Object.keys(slashHandlers).join(', ') || '(none)');
+  /*
+   * Ранее бот создавал и выдавал специальную роль с правом Administrator для
+   * пользователей из whitelist, чтобы они могли видеть скрытые slash‑команды.
+   * По новым требованиям нельзя управлять ролями Discord или выдавать права
+   * автоматически. Поэтому роль больше не создаётся и не назначается.
+   *
+   * Администраторские команды теперь видны всем (см. register.js),
+   * а реальная проверка доступа выполняется в isWhitelisted().
+   */
 });
 
 // Обработка интеракций: slash + кнопки
@@ -141,7 +216,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const requiresAdmin = handler.adminOnly && !publiclyAccessibleCommands.includes(interaction.commandName);
 
     if (requiresAdmin) {
-      const allowed = await isWhitelisted(interaction.member);
+      const allowed = await isWhitelisted(interaction.user);
       if (!allowed) {
         return interaction.reply({ content: '⛔ Недостаточно прав.', ephemeral: true });
       }

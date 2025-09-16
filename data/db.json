@@ -1,11 +1,12 @@
 {
   "user_656899242593484823": {
-    "xp": 814,
+    "xp": 550,
     "invites": 1,
-    "rafflePoints": 1,
-    "doubleTokens": 1,
-    "premium": false,
-    "premium_since": "2025-09-06T23:18:25.876Z",
+    "rafflePoints": 3,
+    "doubleTokens": 0,
+    "cardPacks": 3,
+    "premium": true,
+    "premium_since": "2025-09-16T17:02:54.788Z",
     "id": "656899242593484823"
   },
   "settings_984179219389116457": {
@@ -22,13 +23,13 @@
     "rewards": {
       "xp": 10
     },
-    "expiresAt": "2025-09-15T11:28:15.489Z",
-    "maxUses": 1,
+    "expiresAt": "2025-09-16T17:07:46.913Z",
+    "maxUses": 2,
     "usedCount": 1,
     "usedBy": [
       "656899242593484823"
     ],
-    "createdAt": "2025-09-15T11:26:15.489Z"
+    "createdAt": "2025-09-16T17:02:46.914Z"
   },
   "user_925482701723693196": {
     "xp": 660,
@@ -68,11 +69,8 @@
   },
   "settings_328205360466755584": {
     "logChannelId": "1417241042373181510",
-    "ddEnabled": false,
-    "whitelistUsers": [
-      "311247030422863882",
-      "656899242593484823"
-    ],
+    "ddEnabled": true,
+    "whitelistUsers": [],
     "whitelistRoles": []
   }
 }

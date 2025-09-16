@@ -146,7 +146,7 @@ def draw_split_pair_progress(overlay_img, bar_x, bar_w, y, h_pair, band_start, c
     # Однократное наложение с маской — корректно и без ошибок PIL
     overlay_img.paste(band, (X, Y), mask)
 
-def draw_info(draw, w, h, level, xp_cur, xp_need, is_premium, invites, dd_tokens, raffle):
+def draw_info(draw, w, h, level, xp_cur, xp_need, is_premium, invites, dd_tokens, raffle, packs=None):
     panel_x_pct, panel_w_pct = 76.8, 20.2
     panel_y_pct, panel_h_pct = 7.5, 85.0
 
@@ -158,13 +158,15 @@ def draw_info(draw, w, h, level, xp_cur, xp_need, is_premium, invites, dd_tokens
     pad_x = max(14, int(ww * 0.08))
     pad_y = max(14, int(hh * 0.08))
 
+    # Формируем строки с информацией. Заменяем "До след." на прогресс текущего уровня (xp_cur/xp_need).
     lines = [
         f"Уровень: {level}",
-        f"До след.: {max(0, (xp_need or 0) - (xp_cur or 0))}",
+        f"Прогресс: {xp_cur}/{xp_need}",
         f"Статус: {'Премиум' if bool(is_premium) else 'Фри'}",
         "",
         f"Приглашения: {invites}",
         f"Двойные ставки: {dd_tokens}",
+        f"Паки карт: {packs if packs is not None else 0}",
         f"Очки розыгрыша: {raffle}",
     ]
 
@@ -207,8 +209,9 @@ def main():
     bot_yPct   = float(sys.argv[10])
     bot_hPct   = float(sys.argv[11])
 
-    level = xp_cur = xp_need = premium = invites = dd = raffle = None
-    if len(sys.argv) >= 19:
+    level = xp_cur = xp_need = premium = invites = dd = raffle = packs = None
+    # Если переданы дополнительные аргументы (level, xp_cur, xp_need, premium, invites, dd, raffle, packs)
+    if len(sys.argv) >= 20:
         level   = int(sys.argv[12])
         xp_cur  = int(sys.argv[13])
         xp_need = int(sys.argv[14])
@@ -216,6 +219,7 @@ def main():
         invites = int(sys.argv[16])
         dd      = int(sys.argv[17])
         raffle  = int(sys.argv[18])
+        packs   = int(sys.argv[19])
 
     base = Image.open(in_path).convert('RGBA')
     w, h = base.size
@@ -245,7 +249,7 @@ def main():
         )
 
     if level is not None:
-        draw_info(draw, w, h, level, xp_cur, xp_need, premium, invites, dd, raffle)
+        draw_info(draw, w, h, level, xp_cur, xp_need, premium, invites, dd, raffle, packs)
 
     composed = Image.alpha_composite(base, overlay).convert('RGB')
     composed.save(out_path)

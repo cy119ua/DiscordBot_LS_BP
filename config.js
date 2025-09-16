@@ -30,9 +30,9 @@ module.exports = {
       xPct: 11.0,           // отступ слева, чтобы не перекрывать надпись FREE/PREM
       widthPct: 53.11,     // ширина области полосы (5 ячеек по ~13.5% каждая)
       // Верхняя полоса (уровни 1–5) располагается в верхнем сером ряду
-      top:    { yPct: 9.9, heightPct: 38.89 },
+      top:    { yPct: 9.9, heightPct: 39.0 },
       // Нижняя полоса (уровни 6–10) располагается в нижнем сером ряду
-      bottom: { yPct: 53.3, heightPct: 38.9 }
+      bottom: { yPct: 53.3, heightPct: 39.0 }
     },
 
     // Цвета для каждой из четырёх половинок полосы прогресса. 
@@ -43,12 +43,12 @@ module.exports = {
     // будет использован общий цвет из переменных BP_BAR_R/G/B/ALPHA либо дефолт.
     progressBarColors: {
       top: {
-        free:  { r: 40, g: 200, b: 100, a: 150 },
-        premium: { r: 64, g: 128, b: 255, a: 150 }
+        free:  { r: 60, g: 148, b: 237, a: 127 },
+        premium: { r: 255, g: 63, b: 63, a: 127 }
       },
       bottom: {
-        free:  { r: 64, g: 128, b: 255, a: 150 },
-        premium: { r: 64, g: 128, b: 255, a: 150 }
+        free:  { r: 60, g: 148, b: 237, a: 127 },
+        premium: { r: 255, g: 63, b: 63, a: 127 }
       }
     },
 
@@ -70,10 +70,30 @@ module.exports = {
     //   }
     // }
     // По умолчанию список пуст и награды не начисляются.
-    rewards: {
-      free: {},
-      premium: {}
+    // Компактная запись наград. Заполняйте только здесь — формат позволяет
+    // перечислить уровни через обратный слэш или запятую, чтобы выдать одну
+    // награду на несколько уровней сразу. Значение указывает количество награды
+    // за каждый уровень из списка. При указании нескольких карт на разных уровнях
+    // используйте один объект со всеми парами уровня:значение.
+    rewardsCompact: {
+      free: {
+        cardPacks:    { "1\\6\\11\\15": 1 },
+        doubleTokens: { "18": 1 },
+        rafflePoints: { "3\\13": 1 }
+      },
+      premium: {
+        cardPacks: {
+          "10\\20": 3,
+          "1\\3\\5\\7\\9\\11\\13\\15\\17\\19": 1
+        },
+        doubleTokens: { "8\\18": 1 },
+        rafflePoints: { "4\\14": 1 }
+      }
     },
+
+    // Развёрнутый список наград. Не заполняйте вручную — будет автоматически
+    // сгенерирован на основе rewardsCompact при загрузке конфига.
+    rewards: null,
 
     // Порог XP на каждый уровень (1..100). Если оставить пустым,
     // логика сама упадёт на шаг 100 XP за уровень.
@@ -92,3 +112,60 @@ module.exports = {
     milestones: [50, 96, 100]
   }
 };
+
+// ===== Разворачивание compact-наград в подробный вид =====
+
+/**
+ * Преобразует компактную схему наград в детальную. Результат имеет вид
+ * { free: { lvl: [ {type, amount}, ... ] }, premium: { ... } }.
+ * На одном уровне может быть несколько наград, поэтому значения собираются
+ * в массив. Уровни сортируются по возрастанию для удобства.
+ *
+ * @param {Object} compact Исходная схема rewardsCompact
+ */
+function expandRewards(compact) {
+  const out = { free: {}, premium: {} };
+  for (const lane of ["free", "premium"]) {
+    const laneDef = (compact && compact[lane]) || {};
+    for (const rewardType of Object.keys(laneDef)) {
+      const mapping = laneDef[rewardType] || {};
+      for (const levelsStr of Object.keys(mapping)) {
+        const amt = Number(mapping[levelsStr]);
+        if (!amt || isNaN(amt) || amt <= 0) continue;
+        // Разделяем уровни по слешу или запятой
+        const levels = String(levelsStr)
+          .split(/[\\,]/g)
+          .map(s => s.trim())
+          .filter(Boolean)
+          .map(s => Number(s))
+          .filter(n => Number.isFinite(n) && n > 0);
+        for (const lvl of levels) {
+          if (!out[lane][lvl]) out[lane][lvl] = [];
+          out[lane][lvl].push({ type: rewardType, amount: amt });
+        }
+      }
+    }
+    // сортировка уровней
+    const sorted = {};
+    Object.keys(out[lane])
+      .map(n => Number(n))
+      .sort((a, b) => a - b)
+      .forEach(k => {
+        sorted[k] = out[lane][k];
+      });
+    out[lane] = sorted;
+  }
+  return out;
+}
+
+// Попытка развернуть compact-награды при загрузке модуля. Если что-то
+// пойдёт не так, оставляем пустой набор наград.
+try {
+  const cfg = module.exports;
+  if (cfg.battlePass) {
+    cfg.battlePass.rewards = expandRewards(cfg.battlePass.rewardsCompact);
+  }
+} catch (err) {
+  const cfg = module.exports;
+  if (cfg.battlePass) cfg.battlePass.rewards = { free: {}, premium: {} };
+}

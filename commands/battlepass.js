@@ -48,7 +48,7 @@ function makePageButtons(currentPage) {
   ];
 }
 
-function makeEmbed({ user, page, level, xp }) {
+function makeEmbed({ user, page, level, xp, invites = 0, doubleTokens = 0, rafflePoints = 0, cardPacks = 0 }) {
   const prog = calculateXPProgress(xp || 0);
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
@@ -57,6 +57,10 @@ function makeEmbed({ user, page, level, xp }) {
       `Пользователь: <@${user.id}>\n` +
       `Уровень: **${level}**\n` +
       `Опыт: **${xp}** (${prog.progress})\n` +
+      `Приглашения: **${invites}**\n` +
+      `Двойные ставки: **${doubleTokens}**\n` +
+      `Паки карт: **${cardPacks}**\n` +
+      `Очки розыгрыша: **${rafflePoints}**\n` +
       `Страница: **${pageLabel(page)}**`
     )
     .setFooter({ text: `Страница ${page}/10` })
@@ -65,7 +69,6 @@ function makeEmbed({ user, page, level, xp }) {
   // Показываем либо статичный URL, либо позже заменим на attachment с оверлеем
   const img = imageUrlForPage(page);
   if (img) embed.setImage(img);
-
   return embed;
 }
 
@@ -78,7 +81,16 @@ async function onButton(interaction) {
   const u = await getUser(interaction.user.id);
   const level = calculateLevel(u.xp || 0);
 
-  const embed = makeEmbed({ user: interaction.user, page, level, xp: u.xp || 0 });
+  const embed = makeEmbed({
+    user: interaction.user,
+    page,
+    level,
+    xp: u.xp || 0,
+    invites: u.invites || 0,
+    doubleTokens: u.doubleTokens || 0,
+    rafflePoints: u.rafflePoints || 0,
+    cardPacks: u.cardPacks || 0
+  });
   const components = makePageButtons(page);
 
   let files;
@@ -162,6 +174,7 @@ module.exports.generateImageAttachment = async function(user, page, level, total
   const invitesCount = Number(fullUser.invites || 0);
   const doubleTokens = Number(fullUser.doubleTokens || 0);
   const rafflePoints = Number(fullUser.rafflePoints || 0);
+  const cardPacksCount = Number(fullUser.cardPacks || 0);
 
   // 3) Геометрия полос из конфигурации (в процентах от картинки)
   const bars = bp.progressBars || {
@@ -209,7 +222,8 @@ module.exports.generateImageAttachment = async function(user, page, level, total
     String(premiumFlag),
     String(invitesCount),
     String(doubleTokens),
-    String(rafflePoints)
+    String(rafflePoints),
+    String(cardPacksCount)
   );
 
   // 5.2) Подготавливаем окружение для скрипта. В дополнение к стандартным 

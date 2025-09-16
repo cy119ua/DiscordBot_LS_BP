@@ -1,7 +1,7 @@
+// utils/logger.js
 const { EmbedBuilder, Colors } = require('discord.js');
 const { getSettings } = require('../database/settingsManager');
 
-// Определяем цвет по типу события
 function colorByType(type) {
   switch (type) {
     case 'xpAdd': return Colors.Green;
@@ -13,22 +13,21 @@ function colorByType(type) {
     case 'doubleStakeWindow': return Colors.Yellow;
     case 'promo': return Colors.Blue;
     case 'premiumChange': return Colors.Purple;
-    case 'raffleSet': return Colors.Orange;
-    // Командный функционал
     case 'teamCreate': return Colors.Green;
     case 'teamChange': return Colors.Blurple;
     case 'teamDelete': return Colors.Orange;
     case 'teamResult': return Colors.Red;
+    case 'bpReward': return Colors.Orange;
+    // новые:
+    case 'invitesSet': return Colors.Orange;
+    case 'cardPacksSet': return Colors.Orange;
+    case 'bpReapply': return Colors.Green;
+    case 'userReset': return Colors.Red;
+    case 'dbReset': return Colors.Red;
     default: return Colors.Greyple;
   }
 }
 
-/**
- * Отправляет структурированный лог в указанный лог-канал гильдии.
- * @param {string} type Тип действия (используется для заголовка и цвета)
- * @param {import('discord.js').Guild} guild Объект гильдии
- * @param {object} details Детали события
- */
 async function logAction(type, guild, details = {}) {
   try {
     if (!guild) return;
@@ -37,16 +36,12 @@ async function logAction(type, guild, details = {}) {
     const channel = await guild.channels.fetch(settings.logChannelId).catch(() => null);
     if (!channel) return;
 
-    const embed = new EmbedBuilder()
-      .setTitle(`Лог: ${type}`)
-      .setColor(colorByType(type))
-      .setTimestamp();
-
-    // Формируем строки описания
+    const embed = new EmbedBuilder().setTitle(`Лог: ${type}`).setColor(colorByType(type)).setTimestamp();
     const lines = [];
     if (details.admin) lines.push(`**Админ:** ${details.admin.tag || details.admin}`);
     if (details.user) lines.push(`**Пользователь:** ${details.user.tag || details.user}`);
     if (details.target) lines.push(`**Цель:** ${details.target.tag || details.target}`);
+
     if (typeof details.amount !== 'undefined') lines.push(`**Количество:** ${details.amount}`);
     if (typeof details.value !== 'undefined') lines.push(`**Значение:** ${details.value}`);
     if (typeof details.gainedXp !== 'undefined') lines.push(`**Получено XP:** ${details.gainedXp}`);
@@ -54,36 +49,20 @@ async function logAction(type, guild, details = {}) {
     if (typeof details.limit !== 'undefined') lines.push(`**Лимит:** ${details.limit}`);
     if (typeof details.minutes !== 'undefined') lines.push(`**Срок:** ${details.minutes} мин`);
     if (typeof details.code !== 'undefined') lines.push(`**Код:** ${details.code}`);
-    if (typeof details.multiplier !== 'undefined') lines.push(`**Множитель:** x${details.multiplier}`);
     if (typeof details.beforeTokens !== 'undefined' || typeof details.afterTokens !== 'undefined') {
       lines.push(`**Токены:** ${details.beforeTokens} → ${details.afterTokens}`);
     }
     if (typeof details.oldLevel !== 'undefined' || typeof details.newLevel !== 'undefined') {
       lines.push(`**Уровень:** ${details.oldLevel ?? '?'} → ${details.newLevel ?? '?'}`);
     }
-    // Если указана детальная информация о прогрессе XP, выводим её отдельной строкой
-    if (typeof details.xpChange !== 'undefined') {
-      lines.push(`**Прогресс XP:** ${details.xpChange}`);
-    }
+    if (details.rewardType) lines.push(`**Награда:** ${details.rewardType}`);
+    if (typeof details.level !== 'undefined') lines.push(`**Уровень:** ${details.level}`);
+    if (typeof details.xpChange !== 'undefined') lines.push(`**Прогресс XP:** ${details.xpChange}`);
     if (typeof details.enabled !== 'undefined') lines.push(`**DD:** ${details.enabled ? 'включено' : 'выключено'}`);
     if (typeof details.premium !== 'undefined') lines.push(`**Премиум:** ${details.premium ? 'включён' : 'выключен'}`);
-
-    // Дополнительные поля для команд и ставок
-    if (details.name) lines.push(`**Команда:** ${details.name}`);
-    if (details.members && Array.isArray(details.members) && details.members.length) {
-      const formatted = details.members.map((id) => `<@${id}>`).join(', ');
-      lines.push(`**Участники:** ${formatted}`);
-    }
-    if (details.result) {
-      const map = { win: 'победа', loss: 'поражение', draw: 'ничья' };
-      lines.push(`**Результат:** ${map[details.result] || details.result}`);
-    }
-    if (details.oldMember) lines.push(`**Старый участник:** <@${details.oldMember}>`);
-    if (details.newMember) lines.push(`**Новый участник:** <@${details.newMember}>`);
-    if (typeof details.tokens !== 'undefined') lines.push(`**Жетоны:** ${details.tokens}`);
-    if (details.team) lines.push(`**Команда:** ${details.team}`);
     if (typeof details.totalXp !== 'undefined') lines.push(`**Начислено XP:** ${details.totalXp}`);
     if (typeof details.affected !== 'undefined') lines.push(`**Ставок обработано:** ${details.affected}`);
+    if (typeof details.deltas !== 'undefined') lines.push(`**Δ наград:** ${details.deltas}`);
 
     embed.setDescription(lines.join('\n'));
     await channel.send({ embeds: [embed] });

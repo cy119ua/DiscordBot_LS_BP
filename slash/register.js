@@ -2,6 +2,12 @@
 require('dotenv').config();
 const { REST, Routes } = require('discord.js');
 
+// Импортируем настройки при необходимости.
+// Для выдачи прав на админ‑команды мы используем роль Administrator,
+// назначаемую whitelisted‑пользователям в коде бота. Здесь импорт config
+// оставлен закомментированным, так как adminUsers не используется.
+// const config = require('../config');
+
 const TOKEN = process.env.DISCORD_TOKEN;
 const APP_ID = process.env.APPLICATION_ID;
 const GUILD_ID = process.env.DEV_GUILD_ID;
@@ -51,7 +57,7 @@ const adminOnlyCommands = [
   {
     name: 'bpstat',
     description: 'Показать BP-статистику',
-    default_member_permissions: '0',
+    
     options: [
       { name: 'user', description: 'Пользователь', type: 6, required: false }
     ]
@@ -59,7 +65,6 @@ const adminOnlyCommands = [
   {
     name: 'xp',
     description: 'Добавить XP пользователю',
-    default_member_permissions: '0',
     options: [
       { name: 'user', description: 'Пользователь', type: 6, required: true },
       { name: 'amount', description: 'XP', type: 4, required: true }
@@ -68,7 +73,7 @@ const adminOnlyCommands = [
   {
     name: 'xpset',
     description: 'Установить точный XP',
-    default_member_permissions: '0',
+     
     options: [
       { name: 'user', description: 'Пользователь', type: 6, required: true },
       { name: 'amount', description: 'XP', type: 4, required: true }
@@ -77,7 +82,7 @@ const adminOnlyCommands = [
   {
     name: 'xpinvite',
     description: 'Выдать +100 XP и +1 инвайт',
-    default_member_permissions: '0',
+     
     options: [
       { name: 'user', description: 'Пользователь', type: 6, required: true }
     ]
@@ -85,7 +90,7 @@ const adminOnlyCommands = [
   {
     name: 'gpset',
     description: 'Установить очки розыгрыша',
-    default_member_permissions: '0',
+     
     options: [
       { name: 'user', description: 'Пользователь', type: 6, required: true },
       { name: 'points', description: 'Очки', type: 4, required: true }
@@ -94,10 +99,28 @@ const adminOnlyCommands = [
   {
     name: 'ddset',
     description: 'Установить количество DD-жетонов',
-    default_member_permissions: '0',
+     
     options: [
       { name: 'user', description: 'Пользователь', type: 6, required: true },
       { name: 'amount', description: 'Количество жетонов', type: 4, required: true }
+    ]
+  },
+  {
+    name: 'invset',
+    description: 'Установить количество инвайтов',
+    
+    options: [
+      { name: 'user', description: 'Пользователь', type: 6, required: true },
+      { name: 'amount', description: 'Количество инвайтов', type: 4, required: true }
+    ]
+  },
+  {
+    name: 'cpset',
+    description: 'Установить количество паков карт',
+    
+    options: [
+      { name: 'user', description: 'Пользователь', type: 6, required: true },
+      { name: 'amount', description: 'Количество паков', type: 4, required: true }
     ]
   },
   { name: 'ddstart', description: 'Открыть окно Double-Down', default_member_permissions: '0' },
@@ -105,7 +128,7 @@ const adminOnlyCommands = [
   {
     name: 'setlog',
     description: 'Установить лог-канал',
-    default_member_permissions: '0',
+     
     options: [
       { name: 'channel', description: 'Канал', type: 7, required: true }
     ]
@@ -113,7 +136,7 @@ const adminOnlyCommands = [
   {
     name: 'premiumon',
     description: 'Включить премиум пользователю',
-    default_member_permissions: '0',
+     
     options: [
       { name: 'user', description: 'Пользователь', type: 6, required: true }
     ]
@@ -121,7 +144,7 @@ const adminOnlyCommands = [
   {
     name: 'premiumoff',
     description: 'Выключить премиум пользователю',
-    default_member_permissions: '0',
+     
     options: [
       { name: 'user', description: 'Пользователь', type: 6, required: true }
     ]
@@ -129,7 +152,7 @@ const adminOnlyCommands = [
   {
     name: 'setcode',
     description: 'Создать промокод',
-    default_member_permissions: '0',
+     
     options: [
       { name: 'code', description: 'Код', type: 3, required: true },
       { name: 'minutes', description: 'Время жизни (мин)', type: 4, required: true },
@@ -140,7 +163,7 @@ const adminOnlyCommands = [
   {
     name: 'teamcreate',
     description: 'Создать команду из 5 участников',
-    default_member_permissions: '0',
+     
     options: [
       { name: 'name', description: 'Название команды', type: 3, required: true },
       { name: 'player1', description: 'Участник #1', type: 6, required: true },
@@ -153,7 +176,7 @@ const adminOnlyCommands = [
   {
     name: 'teamchange',
     description: 'Заменить участника в команде',
-    default_member_permissions: '0',
+     
     options: [
       { name: 'name', description: 'Название команды', type: 3, required: true, autocomplete: true },
       { name: 'old', description: 'Кого заменить', type: 6, required: true },
@@ -163,7 +186,7 @@ const adminOnlyCommands = [
   {
     name: 'teamdelete',
     description: 'Удалить команду',
-    default_member_permissions: '0',
+     
     options: [
       { name: 'name', description: 'Название команды', type: 3, required: true, autocomplete: true }
     ]
@@ -171,7 +194,7 @@ const adminOnlyCommands = [
   {
     name: 'teamresult',
     description: 'Зафиксировать результат команды',
-    default_member_permissions: '0',
+     
     options: [
       { name: 'name', description: 'Название команды', type: 3, required: true, autocomplete: true },
       {
@@ -190,7 +213,7 @@ const adminOnlyCommands = [
   {
     name: 'bethistory',
     description: 'История ставок участника',
-    default_member_permissions: '0',
+     
     options: [
       { name: 'user', description: 'Участник', type: 6, required: true }
     ]
@@ -198,7 +221,7 @@ const adminOnlyCommands = [
   {
     name: 'teamhistory',
     description: 'История команд',
-    default_member_permissions: '0',
+     
     options: [
       { name: 'name', description: 'Название команды', type: 3, required: false, autocomplete: true }
     ]
@@ -207,13 +230,23 @@ const adminOnlyCommands = [
 
 const commands = [...publicCommands, ...adminOnlyCommands];
 
-(async () => {
+// В Node 22 использование top‑level await в CommonJS приводит к ошибке. Поэтому
+// переносим асинхронную логику в отдельную функцию и вызываем её.
+async function registerCommands() {
   try {
     const rest = new REST({ version: '10' }).setToken(TOKEN);
-    await rest.put(Routes.applicationGuildCommands(APP_ID, GUILD_ID), { body: commands });
+    // Регистрируем все команды (публичные и админские) для гильдии.
+    await rest.put(
+      Routes.applicationGuildCommands(APP_ID, GUILD_ID),
+      { body: commands }
+    );
     console.log('✅ Slash-команды зарегистрированы для гильдии:', GUILD_ID);
+    // Дополнительные настройки прав не выполняем. Проверка доступа и видимость
+    // обеспечиваются кодом бота через роль Administrator.
   } catch (e) {
     console.error('❌ Register error:', e);
     process.exit(1);
   }
-})();
+}
+
+registerCommands();
