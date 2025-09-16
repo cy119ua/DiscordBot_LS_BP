@@ -1,32 +1,34 @@
 {
   "user_656899242593484823": {
-    "xp": 670,
-    "invites": 0,
-    "rafflePoints": 2,
+    "xp": 814,
+    "invites": 1,
+    "rafflePoints": 1,
     "doubleTokens": 1,
-    "premium": true,
+    "premium": false,
     "premium_since": "2025-09-06T23:18:25.876Z",
     "id": "656899242593484823"
   },
   "settings_984179219389116457": {
     "logChannelId": "1413853448566210682",
-    "ddEnabled": false,
-    "whitelistUsers": [],
+    "ddEnabled": true,
+    "whitelistUsers": [
+      "311247030422863882",
+      "656899242593484823"
+    ],
     "whitelistRoles": []
   },
   "promo_1477": {
     "code": "1477",
     "rewards": {
-      "xp": 100
+      "xp": 10
     },
-    "expiresAt": "2025-09-07T16:33:56.810Z",
-    "maxUses": 2,
-    "usedCount": 2,
+    "expiresAt": "2025-09-15T11:28:15.489Z",
+    "maxUses": 1,
+    "usedCount": 1,
     "usedBy": [
-      "925482701723693196",
       "656899242593484823"
     ],
-    "createdAt": "2025-09-07T16:28:56.810Z"
+    "createdAt": "2025-09-15T11:26:15.489Z"
   },
   "user_925482701723693196": {
     "xp": 660,
@@ -54,5 +56,23 @@
     "premium": false,
     "premium_since": null,
     "id": "585006069294563348"
+  },
+  "user_311247030422863882": {
+    "xp": 3561,
+    "invites": 0,
+    "rafflePoints": 0,
+    "doubleTokens": 0,
+    "premium": true,
+    "premium_since": "2025-09-15T22:18:25.381Z",
+    "id": "311247030422863882"
+  },
+  "settings_328205360466755584": {
+    "logChannelId": "1417241042373181510",
+    "ddEnabled": false,
+    "whitelistUsers": [
+      "311247030422863882",
+      "656899242593484823"
+    ],
+    "whitelistRoles": []
   }
 }

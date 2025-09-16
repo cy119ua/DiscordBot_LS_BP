@@ -61,6 +61,10 @@ async function logAction(type, guild, details = {}) {
     if (typeof details.oldLevel !== 'undefined' || typeof details.newLevel !== 'undefined') {
       lines.push(`**Уровень:** ${details.oldLevel ?? '?'} → ${details.newLevel ?? '?'}`);
     }
+    // Если указана детальная информация о прогрессе XP, выводим её отдельной строкой
+    if (typeof details.xpChange !== 'undefined') {
+      lines.push(`**Прогресс XP:** ${details.xpChange}`);
+    }
     if (typeof details.enabled !== 'undefined') lines.push(`**DD:** ${details.enabled ? 'включено' : 'выключено'}`);
     if (typeof details.premium !== 'undefined') lines.push(`**Премиум:** ${details.premium ? 'включён' : 'выключен'}`);
 

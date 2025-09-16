@@ -32,19 +32,31 @@ const handlers = {
 
       const before = await getUser(userId);
       const oldLevel = calculateLevel(before.xp || 0);
+      const oldProg = calculateXPProgress(before.xp || 0);
 
       let gained = 0;
+      // Результат добавления XP для промокода
+      let resPromo = null;
       if (promo.rewards && Number.isFinite(promo.rewards.xp)) {
-        const res = await addXP(userId, promo.rewards.xp, 'promo');
-        gained = res.xpGained || 0;
+        resPromo = await addXP(userId, promo.rewards.xp, 'promo');
+        gained = resPromo.xpGained || 0;
       }
       await markPromoCodeUsed(code, userId);
 
       const after = await getUser(userId);
       const newLevel = calculateLevel(after.xp || 0);
+      const newProg = calculateXPProgress(after.xp || 0);
+      const xpChangeStr = resPromo
+        ? `${resPromo.oldLevel} (${resPromo.oldXPProgress?.progress || '0/100'}) → ${resPromo.newLevel} (${resPromo.newXPProgress?.progress || '0/100'})`
+        : `${oldLevel} (${oldProg.progress}) → ${newLevel} (${newProg.progress})`;
 
       await logAction('promo', interaction.guild, {
-        user: { id: userId, tag: interaction.user.tag }, code, gainedXp: gained, oldLevel, newLevel
+        user: { id: userId, tag: interaction.user.tag },
+        code,
+        gainedXp: gained,
+        oldLevel,
+        newLevel,
+        xpChange: xpChangeStr
       });
 
       return replyPriv(interaction, { content: `✅ Код принят: +${gained} XP` });
@@ -212,10 +224,15 @@ const handlers = {
       const user = interaction.options.getUser('user', true);
       const amount = interaction.options.getInteger('amount', true);
       const res = await addXP(user.id, amount, 'manual_admin');
+      // Формируем строку изменения опыта вида "L (cur/need) → L (cur/need)"
+      const xpChangeStr = `${res.oldLevel} (${res.oldXPProgress?.progress || '0/100'}) → ${res.newLevel} (${res.newXPProgress?.progress || '0/100'})`;
       await logAction('xpAdd', interaction.guild, {
         admin: { id: interaction.user.id, tag: interaction.user.tag },
         target: { id: user.id, tag: user.tag },
-        amount: res.xpGained, oldLevel: res.oldLevel, newLevel: res.newLevel
+        amount: res.xpGained,
+        oldLevel: res.oldLevel,
+        newLevel: res.newLevel,
+        xpChange: xpChangeStr
       });
       return replyPriv(interaction, { content: `✅ <@${user.id}> +${res.xpGained} XP (уровень ${res.oldLevel} → ${res.newLevel})` });
     }
@@ -227,14 +244,22 @@ const handlers = {
       const user = interaction.options.getUser('user', true);
       const amount = interaction.options.getInteger('amount', true);
       const u = await getUser(user.id);
-      const oldLevel = calculateLevel(u.xp || 0);
+      const oldXp = u.xp || 0;
+      const oldLevel = calculateLevel(oldXp);
+      const oldProg = calculateXPProgress(oldXp);
+      // Устанавливаем новое значение XP без применения наград (ручная установка)
       u.xp = amount;
       await setUser(user.id, u);
       const newLevel = calculateLevel(u.xp || 0);
+      const newProg = calculateXPProgress(u.xp || 0);
+      const xpChangeStr = `${oldLevel} (${oldProg.progress}) → ${newLevel} (${newProg.progress})`;
       await logAction('xpSet', interaction.guild, {
         admin: { id: interaction.user.id, tag: interaction.user.tag },
         target: { id: user.id, tag: user.tag },
-        value: amount, oldLevel, newLevel
+        value: amount,
+        oldLevel,
+        newLevel,
+        xpChange: xpChangeStr
       });
       return replyPriv(interaction, { content: `🛠️ XP для <@${user.id}> установлен на ${amount} (уровень ${oldLevel} → ${newLevel})` });
     }
@@ -248,9 +273,13 @@ const handlers = {
       const u = await getUser(user.id);
       u.invites = (u.invites || 0) + 1;
       await setUser(user.id, u);
+      // Формируем строку изменения XP для логов
+      const xpChangeStr = `${res.oldLevel} (${res.oldXPProgress?.progress || '0/100'}) → ${res.newLevel} (${res.newXPProgress?.progress || '0/100'})`;
       await logAction('xpInvite', interaction.guild, {
         admin: { id: interaction.user.id, tag: interaction.user.tag },
-        target: { id: user.id, tag: user.tag }, gainedXp: res.xpGained
+        target: { id: user.id, tag: user.tag },
+        gainedXp: res.xpGained,
+        xpChange: xpChangeStr
       });
       return replyPriv(interaction, { content: `✅ <@${user.id}>: +${res.xpGained} XP и +1 invite.` });
     }

@@ -212,8 +212,27 @@ module.exports.generateImageAttachment = async function(user, page, level, total
     String(rafflePoints)
   );
 
+  // 5.2) Подготавливаем окружение для скрипта. В дополнение к стандартным 
+  // переменным окружения передаём цвета для каждой половинки полосы, если они определены
+  const env = { ...process.env };
+  try {
+    const colors = bp.progressBarColors || {};
+    function setColor(prefix, obj) {
+      if (!obj) return;
+      const { r, g, b, a } = obj;
+      if (typeof r === 'number') env[`${prefix}_R`] = String(r);
+      if (typeof g === 'number') env[`${prefix}_G`] = String(g);
+      if (typeof b === 'number') env[`${prefix}_B`] = String(b);
+      if (typeof a === 'number') env[`${prefix}_A`] = String(a);
+    }
+    setColor('BP_BAR_TOP_FREE', colors.top?.free);
+    setColor('BP_BAR_TOP_PREM', colors.top?.premium);
+    setColor('BP_BAR_BOT_FREE', colors.bottom?.free);
+    setColor('BP_BAR_BOT_PREM', colors.bottom?.premium);
+  } catch {}
+
   await new Promise((resolve, reject) => {
-    execFile('python', [scriptPath, ...args], { timeout: 15000 }, (err, _so, se) => {
+    execFile('python', [scriptPath, ...args], { timeout: 15000, env }, (err, _so, se) => {
       if (err) reject(new Error(se || err.message));
       else resolve();
     });

@@ -35,15 +35,98 @@ function calculateXPProgress(xp){
   return { currentXP: within, neededXP: seg, progress: `${within}/${seg}` };
 }
 
-async function addXP(userId, baseAmount, reason='generic'){
+/**
+ * Добавляет пользователю XP. Возвращает количество полученного XP и уровень до/после.
+ * Если пользователь имеет статус премиум, XP увеличивается на 10% (округляется вниз).
+ * Параметр skipRewards позволяет пропустить выдачу наград за новые уровни (используется для наград, которые сами добавляют XP).
+ *
+ * @param {string} userId ID пользователя
+ * @param {number} baseAmount Базовое количество XP
+ * @param {string} reason Строка-описание причины начисления
+ * @param {boolean} skipRewards Не начислять награды за уровень, default=false
+ */
+async function addXP(userId, baseAmount, reason='generic', skipRewards=false){
   const u = await getUser(userId);
-  const oldLevel = calculateLevel(u.xp);
+  // Прогресс до начисления
+  const beforeXP = u.xp || 0;
+  const oldLevel = calculateLevel(beforeXP);
+  const oldXPProgress = calculateXPProgress(beforeXP);
+
   let gained = Number(baseAmount)||0;
-  if (u.premium) gained = Math.floor(gained*1.1); // +10% только на будущие начисления
-  u.xp = (u.xp||0) + gained;
-  await setUser(userId, u);
+  // Бонус 10% премиум-пользователям
+  if (u.premium) gained = Math.floor(gained * 1.1);
+
+  u.xp = (u.xp || 0) + gained;
   const newLevel = calculateLevel(u.xp);
-  return { xpGained: gained, oldLevel, newLevel, reason };
+  const newXPProgress = calculateXPProgress(u.xp);
+
+  // Если пользователь перешёл на новые уровни и награды не пропущены, выдаём награды за каждый новый уровень
+  if (!skipRewards && newLevel > oldLevel) {
+    for (let lvl = oldLevel + 1; lvl <= newLevel; lvl++) {
+      await applyLevelRewards(u, lvl);
+    }
+  }
+
+  // Сохраняем обновлённые данные пользователя
+  await setUser(userId, u);
+
+  return { xpGained: gained, oldLevel, newLevel, reason, oldXPProgress, newXPProgress };
+}
+
+/**
+ * Выдаёт награды за определённый уровень. Награды берутся из config.battlePass.rewards.
+ * Для бесплатного пути (free) выдаются всем, для премиального (premium) — только премиум‑пользователям.
+ * Поддерживаемые свойства наград: doubleTokens, rafflePoints, invites, xp, cardPacks. 
+ * При выдаче жетонов (doubleTokens) премиум‑пользователь получает +10% дополнительно (округляется вверх).
+ * При выдаче XP через награду вызывается addXP(..., skipRewards=true), чтобы избежать рекурсивной выдачи.
+ *
+ * @param {object} u Объект пользователя (будет модифицирован)
+ * @param {number} level Номер уровня, за который выдаются награды
+ */
+async function applyLevelRewards(u, level){
+  try {
+    const bp = config?.battlePass || {};
+    const rewards = bp.rewards || {};
+    const freeRewards = rewards.free || {};
+    const premRewards = rewards.premium || {};
+
+    // Функция применения конкретного набора наград к пользователю
+    async function applyRewardSet(rew) {
+      for (const [key, value] of Object.entries(rew || {})) {
+        const amt = Number(value);
+        if (!amt || isNaN(amt)) continue;
+        if (key === 'doubleTokens') {
+          let add = amt;
+          // Премиум даёт +10% к жетонам, округляем вверх для улучшенной отдачи
+          if (u.premium) {
+            add = Math.max(1, Math.ceil(add * 1.1));
+          }
+          u.doubleTokens = Number(u.doubleTokens || 0) + add;
+        } else if (key === 'rafflePoints') {
+          u.rafflePoints = Number(u.rafflePoints || 0) + amt;
+        } else if (key === 'invites') {
+          u.invites = Number(u.invites || 0) + amt;
+        } else if (key === 'xp') {
+          // Для XP-наград используем addXP c skipRewards=true, чтобы избежать рекурсии
+          await addXP(u.id, amt, 'reward', true);
+        } else if (key === 'cardPacks') {
+          // Хранить количество паков карт у пользователя. Заводим новое поле cardPacks, если не было
+          u.cardPacks = Number(u.cardPacks || 0) + amt;
+        }
+      }
+    }
+
+    // Награды бесплатного уровня
+    if (freeRewards[level]) {
+      await applyRewardSet(freeRewards[level]);
+    }
+    // Награды премиального уровня выдаются только премиум-пользователю
+    if (u.premium && premRewards[level]) {
+      await applyRewardSet(premRewards[level]);
+    }
+  } catch (e) {
+    console.error('[applyLevelRewards]', e);
+  }
 }
 
 module.exports = { getUser, setUser, addXP, calculateLevel, calculateXPProgress };
