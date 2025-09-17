@@ -1,13 +1,18 @@
 {
   "user_656899242593484823": {
-    "xp": 550,
-    "invites": 1,
-    "rafflePoints": 3,
-    "doubleTokens": 0,
-    "cardPacks": 3,
+    "xp": 0,
+    "invites": 0,
+    "rafflePoints": 6,
+    "doubleTokens": 4,
+    "cardPacks": 20,
     "premium": true,
     "premium_since": "2025-09-16T17:02:54.788Z",
-    "id": "656899242593484823"
+    "id": "656899242593484823",
+    "ddWindow": {
+      "id": 1,
+      "usedTokens": 2,
+      "betTeam": "qwe2"
+    }
   },
   "settings_984179219389116457": {
     "logChannelId": "1413853448566210682",
@@ -21,15 +26,15 @@
   "promo_1477": {
     "code": "1477",
     "rewards": {
-      "xp": 10
+      "xp": 50
     },
-    "expiresAt": "2025-09-16T17:07:46.913Z",
-    "maxUses": 2,
+    "expiresAt": "2025-09-16T21:24:00.817Z",
+    "maxUses": 1,
     "usedCount": 1,
     "usedBy": [
       "656899242593484823"
     ],
-    "createdAt": "2025-09-16T17:02:46.914Z"
+    "createdAt": "2025-09-16T21:19:00.817Z"
   },
   "user_925482701723693196": {
     "xp": 660,
@@ -62,15 +67,62 @@
     "xp": 3561,
     "invites": 0,
     "rafflePoints": 0,
-    "doubleTokens": 0,
+    "doubleTokens": 97,
+    "cardPacks": 0,
     "premium": true,
     "premium_since": "2025-09-15T22:18:25.381Z",
-    "id": "311247030422863882"
+    "id": "311247030422863882",
+    "ddWindow": {
+      "id": 1,
+      "usedTokens": 2,
+      "betTeam": "qwe2"
+    }
   },
   "settings_328205360466755584": {
     "logChannelId": "1417241042373181510",
     "ddEnabled": true,
+    "ddWindowId": 1,
     "whitelistUsers": [],
     "whitelistRoles": []
+  },
+  "user_1412090027621748877": {
+    "xp": 0,
+    "invites": 0,
+    "rafflePoints": 0,
+    "doubleTokens": 0,
+    "cardPacks": 0,
+    "premium": false,
+    "premium_since": null,
+    "id": "1412090027621748877"
+  },
+  "user_1357975409676783756": {
+    "xp": 0,
+    "invites": 0,
+    "rafflePoints": 0,
+    "doubleTokens": 0,
+    "cardPacks": 0,
+    "premium": false,
+    "premium_since": null,
+    "id": "1357975409676783756"
+  },
+  "user_375805687529209857": {
+    "xp": 0,
+    "invites": 0,
+    "rafflePoints": 0,
+    "doubleTokens": 0,
+    "cardPacks": 0,
+    "premium": false,
+    "premium_since": null,
+    "id": "375805687529209857"
+  },
+  "user_310848622642069504": {
+    "xp": 0,
+    "invites": 0,
+    "rafflePoints": 0,
+    "doubleTokens": 0,
+    "cardPacks": 0,
+    "premium": false,
+    "premium_since": null,
+    "id": "310848622642069504"
   }
 }

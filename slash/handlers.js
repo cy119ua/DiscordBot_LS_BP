@@ -1,25 +1,38 @@
+// sfth/slash/handlers.js
+// ВАЖНО: никаких тяжёлых действий на верхнем уровне (во время require)!
+// Всё, что может дернуть Discord API или БД — только внутри run().
 const { EmbedBuilder, StringSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
-const { getUser, setUser, addXP, calculateLevel, calculateXPProgress } = require('../database/userManager');
-const { getPromoCode, hasUserUsedPromo, isCodeExpired, markPromoCodeUsed, createPromoCode } = require('../database/promoManager');
+const {
+  getUser, setUser, addXP, calculateLevel, calculateXPProgress, reapplyRewardsForUser
+} = require('../database/userManager');
+const {
+  getPromoCode, hasUserUsedPromo, isCodeExpired, markPromoCodeUsed, createPromoCode
+} = require('../database/promoManager');
 const { getSettings, patchSettings } = require('../database/settingsManager');
 const { logAction } = require('../utils/logger');
-const battlepass = require('../commands/battlepass');
 
 // Менеджеры команд, ставок и истории
 const { getTeam, getAllTeams, createTeam, updateTeam, deleteTeam } = require('../utils/teamManager');
 const { addBet, getBetsForTeam, clearBetsForTeam } = require('../utils/betManager');
-const { addBetHistory, addTeamCreate, addTeamResult, getBetHistoryForUser, getTeamHistory } = require('../utils/historyManager');
+const {
+  addBetHistory, addTeamCreate, addTeamResult, getBetHistoryForUser, getTeamHistory
+} = require('../utils/historyManager');
 
-async function replyPriv(interaction, payload) {
+function replyPriv(interaction, payload) {
   if (interaction.replied || interaction.deferred) {
     return interaction.followUp({ ...payload, ephemeral: true });
   }
   return interaction.reply({ ...payload, ephemeral: true });
-};
+}
+
+// безопасно получить тег (только внутри обработчиков)
+async function fetchTagSafe(client, userId) {
+  try { const u = await client.users.fetch(userId); return u.tag; }
+  catch { return userId; }
+}
 
 const handlers = {
   // ---------- USER ----------
-
   code: {
     async run(interaction) {
       const code = interaction.options.getString('value', true).toUpperCase();
@@ -32,23 +45,18 @@ const handlers = {
 
       const before = await getUser(userId);
       const oldLevel = calculateLevel(before.xp || 0);
-      const oldProg = calculateXPProgress(before.xp || 0);
+      const oldProg  = calculateXPProgress(before.xp || 0);
 
-      let gained = 0;
-      // Результат добавления XP для промокода
       let resPromo = null;
       if (promo.rewards && Number.isFinite(promo.rewards.xp)) {
         resPromo = await addXP(userId, promo.rewards.xp, 'promo');
-        gained = resPromo.xpGained || 0;
       }
       await markPromoCodeUsed(code, userId);
 
       const after = await getUser(userId);
       const newLevel = calculateLevel(after.xp || 0);
-      const newProg = calculateXPProgress(after.xp || 0);
-      // Формируем строку изменения прогресса XP без повторения уровней. Вместо
-      // сообщений вида "L (cur/need) → L (cur/need)" оставляем только прогресс
-      // текущего уровня, а сами номера уровней будут отображаться отдельно.
+      const newProg  = calculateXPProgress(after.xp || 0);
+
       const xpChangeStr = resPromo
         ? `${resPromo.oldXPProgress?.progress || '0/100'} → ${resPromo.newXPProgress?.progress || '0/100'}`
         : `${oldProg.progress} → ${newProg.progress}`;
@@ -56,90 +64,58 @@ const handlers = {
       await logAction('promo', interaction.guild, {
         user: { id: userId, tag: interaction.user.tag },
         code,
-        gainedXp: gained,
+        gainedXp: resPromo ? resPromo.xpGained : 0,
+        xpBase:   resPromo ? resPromo.xpBase   : 0,
         oldLevel,
         newLevel,
         xpChange: xpChangeStr
       });
 
-      // Логирование наград, полученных в результате повышения уровня по промокоду
-      // Сравниваем параметры до и после применения промокода
+      // Зафиксируем дельты наград
       const diffDouble = (after.doubleTokens || 0) - (before.doubleTokens || 0);
       const diffRaffle = (after.rafflePoints || 0) - (before.rafflePoints || 0);
       const diffInvites = (after.invites || 0) - (before.invites || 0);
       const diffPacks = (after.cardPacks || 0) - (before.cardPacks || 0);
-      if (diffDouble > 0) {
-        await logAction('bpReward', interaction.guild, {
-          user: { id: userId, tag: interaction.user.tag },
-          amount: diffDouble,
-          rewardType: 'doubleTokens',
-          level: newLevel
-        });
-      }
-      if (diffRaffle > 0) {
-        await logAction('bpReward', interaction.guild, {
-          user: { id: userId, tag: interaction.user.tag },
-          amount: diffRaffle,
-          rewardType: 'rafflePoints',
-          level: newLevel
-        });
-      }
-      if (diffInvites > 0) {
-        await logAction('bpReward', interaction.guild, {
-          user: { id: userId, tag: interaction.user.tag },
-          amount: diffInvites,
-          rewardType: 'invites',
-          level: newLevel
-        });
-      }
-      if (diffPacks > 0) {
-        await logAction('bpReward', interaction.guild, {
-          user: { id: userId, tag: interaction.user.tag },
-          amount: diffPacks,
-          rewardType: 'cardPacks',
-          level: newLevel
-        });
-      }
+      const tgt = { id: userId, tag: interaction.user.tag };
+      if (diffDouble > 0) await logAction('bpReward', interaction.guild, { user: tgt, amount: diffDouble, rewardType: 'doubleTokens', level: newLevel });
+      if (diffRaffle > 0) await logAction('bpReward', interaction.guild, { user: tgt, amount: diffRaffle,  rewardType: 'rafflePoints', level: newLevel });
+      if (diffInvites > 0) await logAction('bpReward', interaction.guild, { user: tgt, amount: diffInvites,  rewardType: 'invites',      level: newLevel });
+      if (diffPacks  > 0) await logAction('bpReward', interaction.guild, { user: tgt, amount: diffPacks,   rewardType: 'cardPacks',   level: newLevel });
 
-      return replyPriv(interaction, { content: `✅ Код принят: +${gained} XP` });
+      return replyPriv(interaction, { content: `✅ Код принят: +${resPromo ? resPromo.xpGained : 0} XP` });
     }
   },
 
   usedd: {
     async run(interaction) {
-      // Разместить ставку на команду.
       const tokens = interaction.options.getInteger('tokens', true);
       const teamName = interaction.options.getString('team', false);
-
-      // Проверка количества жетонов
-      if (!Number.isFinite(tokens) || tokens <= 0) {
-        return replyPriv(interaction, { content: '❌ Количество жетонов должно быть положительным числом.' });
+      if (tokens !== 1 && tokens !== 2) {
+        return replyPriv(interaction, { content: '❌ Можно использовать только 1 или 2 жетона.', ephemeral: true });
       }
-      if (tokens > 50) {
-        return replyPriv(interaction, { content: '❌ Можно поставить максимум 50 жетонов за раз.' });
-      }
-
-      // Окно Double-Down должно быть открыто
       const settings = await getSettings(interaction.guild.id);
-      if (!settings.ddEnabled) {
-        return replyPriv(interaction, { content: '❌ Double-Down сейчас недоступен.' });
-      }
+      if (!settings.ddEnabled) return replyPriv(interaction, { content: '❌ Double-Down сейчас недоступен.' });
+      const windowId = settings.ddWindowId || 0;
 
       const userId = interaction.user.id;
-      const userRecord = await getUser(userId);
-      const current = Number(userRecord.doubleTokens || 0);
-      if (current < tokens) {
-        return replyPriv(interaction, { content: `❌ Недостаточно жетонов: есть ${current}, требуется ${tokens}.` });
+      const u = await getUser(userId);
+      const balance = Number(u.doubleTokens || 0);
+      if (balance < tokens) return replyPriv(interaction, { content: `❌ Недостаточно жетонов: есть ${balance}, требуется ${tokens}.` });
+
+      if (!u.ddWindow || u.ddWindow.id !== windowId) {
+        u.ddWindow = { id: windowId, usedTokens: 0, betTeam: null };
+      }
+      if ((u.ddWindow.usedTokens || 0) + tokens > 2) {
+        const remain = Math.max(0, 2 - (u.ddWindow.usedTokens || 0));
+        return replyPriv(interaction, { content: `❌ Лимит жетонов на окно — 2. Доступно: ${remain}.`, ephemeral: true });
       }
 
-      // Если команда не указана, выдаём выпадающий список
       if (!teamName) {
         const teams = getAllTeams();
         const names = Object.keys(teams);
-        if (names.length === 0) {
-          return replyPriv(interaction, { content: '❌ Нет доступных команд для ставки. Попросите администратора создать команды.' });
-        }
-        const options = names.slice(0, 25).map((n) => ({ label: n, value: n }));
+        if (!names.length) return replyPriv(interaction, { content: '❌ Нет доступных команд для ставки. Попросите администратора создать команды.' });
+        const allow = u.ddWindow.betTeam ? [u.ddWindow.betTeam] : names;
+        const options = allow.slice(0, 25).map((n) => ({ label: n, value: n }));
         const menu = new StringSelectMenuBuilder()
           .setCustomId(`usedd_team_select:${userId}:${tokens}`)
           .setPlaceholder('Выберите команду')
@@ -148,55 +124,44 @@ const handlers = {
         return interaction.reply({ content: 'Выберите команду для ставки:', components: [row], embeds: [], files: [], ephemeral: true });
       }
 
-      // Проверяем существование команды
       const team = getTeam(teamName);
       if (!team) {
-        const allNames = Object.keys(getAllTeams());
-        const available = allNames.length ? allNames.map((n) => `**${n}**`).join(', ') : 'нет';
-        return replyPriv(interaction, { content: `❌ Команда **${teamName}** не найдена. Доступные: ${available}.` });
+        const avail = Object.keys(getAllTeams());
+        const txt = avail.length ? avail.map(n => `**${n}**`).join(', ') : 'нет';
+        return replyPriv(interaction, { content: `❌ Команда **${teamName}** не найдена. Доступные: ${txt}.` });
+      }
+      if (u.ddWindow.betTeam && u.ddWindow.betTeam !== teamName) {
+        return replyPriv(interaction, { content: `❌ В этом окне ставка уже была на **${u.ddWindow.betTeam}**. Ставка может быть только на одну команду.`, ephemeral: true });
       }
 
-      // Списываем жетоны (повторная проверка)
-      const fresh = await getUser(userId);
-      const before = Number(fresh.doubleTokens || 0);
-      if (before < tokens) {
-        return replyPriv(interaction, { content: `❌ Недостаточно жетонов: есть ${before}, требуется ${tokens}.` });
-      }
-      fresh.doubleTokens = before - tokens;
-      await setUser(userId, fresh);
+      const before = Number(u.doubleTokens || 0);
+      u.doubleTokens = before - tokens;
+      u.ddWindow.usedTokens = (u.ddWindow.usedTokens || 0) + tokens;
+      if (!u.ddWindow.betTeam) u.ddWindow.betTeam = teamName;
+      await setUser(userId, u);
 
-      // Сохраняем ставку
       await addBet(userId, teamName, tokens);
-
-      // История ставок
       addBetHistory({ type: 'bet', userId, team: teamName, tokens, members: team.members, xp: 0 });
 
-      // Лог
       await logAction('doubleStake', interaction.guild, {
         user: { id: userId, tag: interaction.user.tag },
-        tokens,
-        team: teamName,
-        beforeTokens: before,
-        afterTokens: fresh.doubleTokens
+        tokens, team: teamName, beforeTokens: before, afterTokens: u.doubleTokens
       });
 
-      return replyPriv(interaction, {
-        content: `✅ Ставка принята: ${tokens} жетон(ов) на команду **${teamName}**. Осталось жетонов: ${fresh.doubleTokens}.`
-      });
+      return replyPriv(interaction, { content: `✅ Ставка принята: ${tokens} жетон(ов) на **${teamName}**. Осталось жетонов: ${u.doubleTokens}. (Окно #${windowId}: ${u.ddWindow.usedTokens}/2)` });
     }
   },
 
   bp: {
     adminOnly: false,
     async run(interaction) {
-      // Определяем страницу исходя из уровня пользователя
+      const battlepass = require('../commands/battlepass'); // ленивый импорт
       const u = await getUser(interaction.user.id);
       const level = calculateLevel(u.xp || 0);
       const page = battlepass.defaultLevelToPage(level);
       const embed = battlepass.makeEmbed({
         user: interaction.user,
-        page,
-        level,
+        page, level,
         xp: u.xp || 0,
         invites: u.invites || 0,
         doubleTokens: u.doubleTokens || 0,
@@ -207,18 +172,13 @@ const handlers = {
       let files;
       try {
         const imgAtt = await battlepass.generateImageAttachment(u, page, level, u.xp || 0);
-        if (imgAtt) {
-          embed.setImage(`attachment://${imgAtt.name}`);
-          files = [imgAtt];
-        }
-      } catch (e) {
-        console.error('[BP overlay error]', e?.message || e);
-      }
+        if (imgAtt) { embed.setImage(`attachment://${imgAtt.name}`); files = [imgAtt]; }
+      } catch(e) { console.error('[BP overlay error]', e?.message || e); }
       return replyPriv(interaction, { embeds: [embed], components, files });
     }
   },
 
-  // Статистика боевого пропуска
+  // ---------- ADMIN ----------
   bpstat: {
     adminOnly: true,
     async run(interaction) {
@@ -246,90 +206,51 @@ const handlers = {
     }
   },
 
-  // Создание промокода (админ)
   setcode: {
     adminOnly: true,
     async run(interaction) {
-      const codeStr = interaction.options.getString('code', true).toUpperCase();
-      const minutes = interaction.options.getInteger('minutes', true);
+      const codeStr  = interaction.options.getString('code', true).toUpperCase();
+      const minutes  = interaction.options.getInteger('minutes', true);
       const xpAmount = interaction.options.getInteger('xp', true);
-      const limit = interaction.options.getInteger('limit', false) || 0;
+      const limit    = interaction.options.getInteger('limit', false) || 0;
       const expiresAt = new Date(Date.now() + minutes * 60000);
       await createPromoCode(codeStr, { xp: xpAmount }, expiresAt, limit);
       await logAction('promo', interaction.guild, {
         admin: { id: interaction.user.id, tag: interaction.user.tag },
-        code: codeStr,
-        gainedXp: xpAmount,
-        limit,
-        minutes
+        code: codeStr, gainedXp: xpAmount, limit, minutes
       });
-      return replyPriv(interaction, {
-        content: `✅ Промокод \`${codeStr}\` создан: +${xpAmount} XP, срок ${minutes} мин., лимит ${limit || 'без ограничений'}.`
-      });
+      return replyPriv(interaction, { content: `✅ Промокод \`${codeStr}\` создан (+${xpAmount} XP, ${minutes} мин., лимит ${limit || '∞'})` });
     }
   },
 
-  // ---------- ADMIN ----------
   xp: {
     adminOnly: true,
     async run(interaction) {
-      const user = interaction.options.getUser('user', true);
+      const user   = interaction.options.getUser('user', true);
       const amount = interaction.options.getInteger('amount', true);
-      // Сохраняем состояние пользователя до начисления XP
       const before = await getUser(user.id);
-      const res = await addXP(user.id, amount, 'manual_admin');
-      const after = await getUser(user.id);
-      // Формируем строку изменения опыта вида "L (cur/need) → L (cur/need)"
-      // Формируем строку прогресса без повторения номеров уровней. Номера уровней
-      // будут отображаться отдельно в логах. Пример: "35/100 → 20/100".
+      const res    = await addXP(user.id, amount, 'manual_admin');
+      const after  = await getUser(user.id);
       const xpChangeStr = `${res.oldXPProgress?.progress || '0/100'} → ${res.newXPProgress?.progress || '0/100'}`;
+
       await logAction('xpAdd', interaction.guild, {
         admin: { id: interaction.user.id, tag: interaction.user.tag },
         target: { id: user.id, tag: user.tag },
-        amount: res.xpGained,
-        oldLevel: res.oldLevel,
-        newLevel: res.newLevel,
-        xpChange: xpChangeStr
+        amount: res.xpGained, gainedXp: res.xpGained, xpBase: res.xpBase,
+        oldLevel: res.oldLevel, newLevel: res.newLevel, xpChange: xpChangeStr
       });
-      // Вычисляем разницу наград после повышения уровня
+
       const diffDouble = (after.doubleTokens || 0) - (before.doubleTokens || 0);
       const diffRaffle = (after.rafflePoints || 0) - (before.rafflePoints || 0);
       const diffInvites = (after.invites || 0) - (before.invites || 0);
       const diffPacks = (after.cardPacks || 0) - (before.cardPacks || 0);
-      const diffXP   = (after.xp || 0) - (before.xp || 0);
-      // Логируем каждую полученную награду отдельно
-      if (diffDouble > 0) {
-        await logAction('bpReward', interaction.guild, {
-          user: { id: user.id, tag: user.tag },
-          amount: diffDouble,
-          rewardType: 'doubleTokens',
-          level: res.newLevel
-        });
-      }
-      if (diffRaffle > 0) {
-        await logAction('bpReward', interaction.guild, {
-          user: { id: user.id, tag: user.tag },
-          amount: diffRaffle,
-          rewardType: 'rafflePoints',
-          level: res.newLevel
-        });
-      }
-      if (diffInvites > 0) {
-        await logAction('bpReward', interaction.guild, {
-          user: { id: user.id, tag: user.tag },
-          amount: diffInvites,
-          rewardType: 'invites',
-          level: res.newLevel
-        });
-      }
-      if (diffPacks > 0) {
-        await logAction('bpReward', interaction.guild, {
-          user: { id: user.id, tag: user.tag },
-          amount: diffPacks,
-          rewardType: 'cardPacks',
-          level: res.newLevel
-        });
-      }
+      const lvlNew = res.newLevel;
+      const tgt = { id: user.id, tag: user.tag };
+      if (diffDouble > 0) await logAction('bpReward', interaction.guild, { user: tgt, amount: diffDouble, rewardType: 'doubleTokens', level: lvlNew });
+      if (diffRaffle > 0) await logAction('bpReward', interaction.guild, { user: tgt, amount: diffRaffle,  rewardType: 'rafflePoints', level: lvlNew });
+      if (diffInvites > 0) await logAction('bpReward', interaction.guild, { user: tgt, amount: diffInvites,  rewardType: 'invites',      level: lvlNew });
+      if (diffPacks  > 0) await logAction('bpReward', interaction.guild, { user: tgt, amount: diffPacks,   rewardType: 'cardPacks',   level: lvlNew });
+
       return replyPriv(interaction, { content: `✅ <@${user.id}> +${res.xpGained} XP (уровень ${res.oldLevel} → ${res.newLevel})` });
     }
   },
@@ -337,28 +258,21 @@ const handlers = {
   xpset: {
     adminOnly: true,
     async run(interaction) {
-      const user = interaction.options.getUser('user', true);
+      const user   = interaction.options.getUser('user', true);
       const amount = interaction.options.getInteger('amount', true);
       const u = await getUser(user.id);
       const oldXp = u.xp || 0;
       const oldLevel = calculateLevel(oldXp);
-      const oldProg = calculateXPProgress(oldXp);
-      // Устанавливаем новое значение XP без применения наград (ручная установка)
+      const oldProg  = calculateXPProgress(oldXp);
       u.xp = amount;
       await setUser(user.id, u);
       const newLevel = calculateLevel(u.xp || 0);
-      const newProg = calculateXPProgress(u.xp || 0);
-      // Формируем строку прогресса XP без повторения уровней, чтобы не дублировать
-      // информацию: выводим только прогресс текущего уровня в формате
-      // "curr/need → curr/need".
+      const newProg  = calculateXPProgress(u.xp || 0);
       const xpChangeStr = `${oldProg.progress} → ${newProg.progress}`;
       await logAction('xpSet', interaction.guild, {
         admin: { id: interaction.user.id, tag: interaction.user.tag },
         target: { id: user.id, tag: user.tag },
-        value: amount,
-        oldLevel,
-        newLevel,
-        xpChange: xpChangeStr
+        value: amount, oldLevel, newLevel, xpChange: xpChangeStr
       });
       return replyPriv(interaction, { content: `🛠️ XP для <@${user.id}> установлен на ${amount} (уровень ${oldLevel} → ${newLevel})` });
     }
@@ -368,70 +282,34 @@ const handlers = {
     adminOnly: true,
     async run(interaction) {
       const user = interaction.options.getUser('user', true);
-      // состояние до
       const before = await getUser(user.id);
       const res = await addXP(user.id, 100, 'invite');
       const u = await getUser(user.id);
       u.invites = (u.invites || 0) + 1;
       await setUser(user.id, u);
-      // состояние после
       const after = await getUser(user.id);
-      // Формируем строку изменения XP для логов
-      // Формируем строку изменения прогресса XP без повторения уровней. Уровни
-      // будут отображаться отдельно в логах, так что здесь выводим только
-      // текущий прогресс (текущий XP / необходимый XP).
       const xpChangeStr = `${res.oldXPProgress?.progress || '0/100'} → ${res.newXPProgress?.progress || '0/100'}`;
       await logAction('xpInvite', interaction.guild, {
         admin: { id: interaction.user.id, tag: interaction.user.tag },
         target: { id: user.id, tag: user.tag },
-        gainedXp: res.xpGained,
-        xpChange: xpChangeStr
+        gainedXp: res.xpGained, xpBase: res.xpBase, xpChange: xpChangeStr
       });
-      // вычисляем разницу наград
       const diffDouble = (after.doubleTokens || 0) - (before.doubleTokens || 0);
       const diffRaffle = (after.rafflePoints || 0) - (before.rafflePoints || 0);
       const diffInvites = (after.invites || 0) - (before.invites || 0);
-      const diffPacks = (after.cardPacks || 0) - (before.cardPacks || 0);
-      if (diffDouble > 0) {
-        await logAction('bpReward', interaction.guild, {
-          user: { id: user.id, tag: user.tag },
-          amount: diffDouble,
-          rewardType: 'doubleTokens',
-          level: res.newLevel
-        });
-      }
-      if (diffRaffle > 0) {
-        await logAction('bpReward', interaction.guild, {
-          user: { id: user.id, tag: user.tag },
-          amount: diffRaffle,
-          rewardType: 'rafflePoints',
-          level: res.newLevel
-        });
-      }
-      if (diffInvites > 1) {
-        // one invite is manually added below; subtract 1 to get level reward invites
-        const rewardedInvites = diffInvites - 1;
-        if (rewardedInvites > 0) {
-          await logAction('bpReward', interaction.guild, {
-            user: { id: user.id, tag: user.tag },
-            amount: rewardedInvites,
-            rewardType: 'invites',
-            level: res.newLevel
-          });
-        }
-      }
-      if (diffPacks > 0) {
-        await logAction('bpReward', interaction.guild, {
-          user: { id: user.id, tag: user.tag },
-          amount: diffPacks,
-          rewardType: 'cardPacks',
-          level: res.newLevel
-        });
-      }
+      const diffPacks   = (after.cardPacks || 0) - (before.cardPacks || 0);
+      const lvlNew = calculateLevel(after.xp || 0);
+      const tgt = { id: user.id, tag: user.tag };
+      if (diffDouble > 0) await logAction('bpReward', interaction.guild, { user: tgt, amount: diffDouble, rewardType: 'doubleTokens', level: lvlNew });
+      if (diffRaffle > 0) await logAction('bpReward', interaction.guild, { user: tgt, amount: diffRaffle,  rewardType: 'rafflePoints', level: lvlNew });
+      if (diffInvites > 1) { const rewardedInvites = diffInvites - 1; if (rewardedInvites > 0) await logAction('bpReward', interaction.guild, { user: tgt, amount: rewardedInvites, rewardType: 'invites', level: lvlNew }); }
+      if (diffPacks  > 0) await logAction('bpReward', interaction.guild, { user: tgt, amount: diffPacks,   rewardType: 'cardPacks', level: lvlNew });
+
       return replyPriv(interaction, { content: `✅ <@${user.id}>: +${res.xpGained} XP и +1 invite.` });
     }
   },
 
+  // Ручные сеттеры
   gpset: {
     adminOnly: true,
     async run(interaction) {
@@ -440,13 +318,10 @@ const handlers = {
       const u = await getUser(user.id);
       u.rafflePoints = points;
       await setUser(user.id, u);
-      await logAction('raffleSet', interaction.guild, {
-        admin: { id: interaction.user.id, tag: interaction.user.tag }, target: { id: user.id, tag: user.tag }, points
-      });
+      await logAction('raffleSet', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, target: { id: user.id, tag: user.tag }, points });
       return replyPriv(interaction, { content: `🎟️ У <@${user.id}> теперь ${points} очков розыгрыша.` });
     }
   },
-
   ddset: {
     adminOnly: true,
     async run(interaction) {
@@ -455,17 +330,10 @@ const handlers = {
       const u = await getUser(user.id);
       u.doubleTokens = amount;
       await setUser(user.id, u);
-      await logAction('doubleStakeTokensSet', interaction.guild, {
-        admin: { id: interaction.user.id, tag: interaction.user.tag }, target: { id: user.id, tag: user.tag }, amount
-      });
+      await logAction('doubleStakeTokensSet', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, target: { id: user.id, tag: user.tag }, amount });
       return replyPriv(interaction, { content: `🎯 У <@${user.id}> установлено DD-жетонов: ${amount}.` });
     }
   },
-
-  /**
-   * Установить точное количество инвайтов пользователю.
-   * Опции: user (USER), amount (INTEGER)
-   */
   invset: {
     adminOnly: true,
     async run(interaction) {
@@ -474,19 +342,10 @@ const handlers = {
       const u = await getUser(user.id);
       u.invites = amount;
       await setUser(user.id, u);
-      await logAction('invitesSet', interaction.guild, {
-        admin: { id: interaction.user.id, tag: interaction.user.tag },
-        target: { id: user.id, tag: user.tag },
-        amount
-      });
-      return replyPriv(interaction, { content: `📨 У <@${user.id}> установлено инвайтов: ${amount}.` });
+      await logAction('invitesSet', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, target: { id: user.id, tag: user.tag }, amount });
+      return replyPriv(interaction, { content: `🤝 У <@${user.id}> установлено инвайтов: ${amount}.` });
     }
   },
-
-  /**
-   * Установить точное количество паков карт пользователю.
-   * Опции: user (USER), amount (INTEGER)
-   */
   cpset: {
     adminOnly: true,
     async run(interaction) {
@@ -495,23 +354,61 @@ const handlers = {
       const u = await getUser(user.id);
       u.cardPacks = amount;
       await setUser(user.id, u);
-      await logAction('cardPacksSet', interaction.guild, {
-        admin: { id: interaction.user.id, tag: interaction.user.tag },
-        target: { id: user.id, tag: user.tag },
-        amount
-      });
+      await logAction('cardPacksSet', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, target: { id: user.id, tag: user.tag }, amount });
       return replyPriv(interaction, { content: `🃏 У <@${user.id}> установлено паков карт: ${amount}.` });
+    }
+  },
+
+  bpreapply: {
+    adminOnly: true,
+    async run(interaction) {
+      const user = interaction.options.getUser('user', true);
+      const includeXP = !!interaction.options.getBoolean('includexp', false);
+      const res = await reapplyRewardsForUser(user.id, includeXP);
+      await logAction('bpReapply', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, target: { id: user.id, tag: user.tag }, level: res.level, deltas: JSON.stringify(res.deltas) });
+      return replyPriv(interaction, { content: `🔁 Доначислены недостающие награды для <@${user.id}> (уровень ${res.level}).` });
+    }
+  },
+
+  userreset: {
+    adminOnly: true,
+    async run(interaction) {
+      const user = interaction.options.getUser('user', true);
+      const u = await getUser(user.id);
+      u.xp = 0; u.doubleTokens = 0; u.rafflePoints = 0; u.invites = 0; u.cardPacks = 0;
+      await setUser(user.id, u);
+      await logAction('userReset', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, target: { id: user.id, tag: user.tag } });
+      return replyPriv(interaction, { content: `🧹 Пользователь <@${user.id}> обнулён.` });
+    }
+  },
+
+  dbreset: {
+    adminOnly: true,
+    async run(interaction) {
+      const confirm = interaction.options.getBoolean('confirm', true);
+      if (!confirm) return replyPriv(interaction, { content: 'Отмена.' });
+
+      let wiped = 0;
+      try {
+        const db = global.db;
+        if (db?.list && db?.delete) {
+          const keys = await db.list('user_');
+          for (const k of keys) { await db.delete(k); wiped++; }
+        }
+      } catch (e) { console.error('[dbreset/list-delete]', e); }
+      await logAction('dbReset', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, value: `users=${wiped}` });
+      return replyPriv(interaction, { content: `💣 Сброшено пользователей: ${wiped}.` });
     }
   },
 
   ddstart: {
     adminOnly: true,
     async run(interaction) {
-      await patchSettings(interaction.guild.id, { ddEnabled: true });
-      await logAction('doubleStakeWindow', interaction.guild, {
-        admin: { id: interaction.user.id, tag: interaction.user.tag }, enabled: true
-      });
-      return replyPriv(interaction, { content: '✅ Окно Double-Down открыто.' });
+      const settings = await getSettings(interaction.guild.id);
+      const nextId = (settings.ddWindowId || 0) + 1;
+      await patchSettings(interaction.guild.id, { ddEnabled: true, ddWindowId: nextId });
+      await logAction('doubleStakeWindow', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, enabled: true, value: `windowId=${nextId}` });
+      return interaction.reply({ content: `✅ Окно Double-Down открыто (ID: ${nextId}).`, ephemeral: true });
     }
   },
 
@@ -519,9 +416,7 @@ const handlers = {
     adminOnly: true,
     async run(interaction) {
       await patchSettings(interaction.guild.id, { ddEnabled: false });
-      await logAction('doubleStakeWindow', interaction.guild, {
-        admin: { id: interaction.user.id, tag: interaction.user.tag }, enabled: false
-      });
+      await logAction('doubleStakeWindow', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, enabled: false });
       return replyPriv(interaction, { content: '🛑 Окно Double-Down закрыто.' });
     }
   },
@@ -543,9 +438,7 @@ const handlers = {
       u.premium = true;
       u.premium_since = new Date().toISOString();
       await setUser(user.id, u);
-      await logAction('premiumChange', interaction.guild, {
-        admin: { id: interaction.user.id, tag: interaction.user.tag }, target: { id: user.id, tag: user.tag }, premium: true
-      });
+      await logAction('premiumChange', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, target: { id: user.id, tag: user.tag }, premium: true });
       return replyPriv(interaction, { content: `⭐ Премиум включён для <@${user.id}>` });
     }
   },
@@ -557,195 +450,111 @@ const handlers = {
       const u = await getUser(user.id);
       u.premium = false;
       await setUser(user.id, u);
-      await logAction('premiumChange', interaction.guild, {
-        admin: { id: interaction.user.id, tag: interaction.user.tag }, target: { id: user.id, tag: user.tag }, premium: false
-      });
+      await logAction('premiumChange', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, target: { id: user.id, tag: user.tag }, premium: false });
       return replyPriv(interaction, { content: `🆓 Премиум выключен для <@${user.id}>` });
     }
   },
 
-  /**
-   * Создать команду из 5 участников. Название команды должно быть уникальным.
-   * Опции: name (STRING), player1..player5 (USER).
-   */
+  // ---------- Команды для команд ----------
   teamcreate: {
     adminOnly: true,
     async run(interaction) {
       const name = interaction.options.getString('name', true)?.trim();
-
-      // Собираем участников
       const members = [];
       for (let i = 1; i <= 5; i++) {
         const optName = `player${i}`;
         const user = interaction.options.getUser(optName, true);
         members.push(user.id);
       }
-
-      // Проверяем, что 5 уникальных участников
       if (new Set(members).size !== members.length) {
-        return replyPriv(interaction, {
-          content: '❌ Ошибка: необходимо указать 5 уникальных участников.'
-        });
+        return replyPriv(interaction, { content: '❌ Ошибка: необходимо указать 5 уникальных участников.' });
       }
-
-      // Дополнительные проверки:
       const all = getAllTeams();
+      const existsByName = Object.keys(all).some((n) => n.toLowerCase() === name.toLowerCase());
+      if (existsByName) return replyPriv(interaction, { content: `❌ Ошибка: команда с именем **${name}** уже существует.` });
 
-      // 1) Название команды уникально (без учёта регистра)
-      const existsByName = Object.keys(all).some(
-        (n) => n.toLowerCase() === name.toLowerCase()
-      );
-      if (existsByName) {
-        return replyPriv(interaction, {
-          content: `❌ Ошибка: команда с именем **${name}** уже существует.`
-        });
-      }
-
-      // 2) Эти 5 участников не состоят в других командах
       const conflicts = [];
       for (const [tname, t] of Object.entries(all)) {
         const inTeam = new Set((t.members || []).map(String));
-        for (const m of members) {
-          if (inTeam.has(String(m))) {
-            conflicts.push({ member: m, team: tname });
-          }
-        }
+        for (const m of members) if (inTeam.has(String(m))) conflicts.push({ member: m, team: tname });
       }
       if (conflicts.length) {
-        const pretty = conflicts
-          .map((c) => `<@${c.member}> в «${c.team}»`)
-          .join(', ');
-        return replyPriv(interaction, {
-          content: `❌ Ошибка: следующие участники уже состоят в других командах: ${pretty}`
-        });
+        const pretty = conflicts.map((c) => `<@${c.member}> в «${c.team}»`).join(', ');
+        return replyPriv(interaction, { content: `❌ Ошибка: следующие участники уже состоят в других командах: ${pretty}` });
       }
 
-      // 3) Запрещаем дублировать состав из тех же 5 участников (даже с другим именем)
       const norm = (arr) => [...new Set(arr.map(String))].sort().join('|');
       const sig = norm(members);
       for (const t of Object.values(all)) {
         if (norm(t.members || []) === sig) {
-          return replyPriv(interaction, {
-            content: '❌ Ошибка: команда с таким же составом уже существует.'
-          });
+          return replyPriv(interaction, { content: '❌ Ошибка: команда с таким же составом уже существует.' });
         }
       }
 
-      // Создаём команду
       const created = createTeam(name, members);
-      if (!created) {
-        return replyPriv(interaction, {
-          content: `❌ Ошибка: команда **${name}** уже существует.`
-        });
-      }
+      if (!created) return replyPriv(interaction, { content: `❌ Ошибка: команда **${name}** уже существует.` });
 
-      // История и лог
       addTeamCreate(name, members);
+      // информативный лог: название и ники участников
+      const memberTags = await Promise.all(members.map((id) => fetchTagSafe(interaction.client, id)));
       await logAction('teamCreate', interaction.guild, {
         admin: { id: interaction.user.id, tag: interaction.user.tag },
         name,
-        members
+        membersList: memberTags
       });
 
       const mentions = members.map((id) => `<@${id}>`).join(', ');
-      return replyPriv(interaction, {
-        content: `✅ Команда **${name}** создана. Участники: ${mentions}.`
-      });
+      return replyPriv(interaction, { content: `✅ Команда **${name}** создана. Участники: ${mentions}.` });
     }
   },
 
-  /**
-   * Заменить одного участника в существующей команде на другого.
-   * Опции: name (STRING), old (USER), new (USER).
-   */
   teamchange: {
     adminOnly: true,
     async run(interaction) {
       const name = interaction.options.getString('name', true)?.trim();
       const oldUser = interaction.options.getUser('old', true);
       const newUser = interaction.options.getUser('new', true);
-
       if (oldUser.id === newUser.id) {
-        return replyPriv(interaction, {
-          content: '❌ Ошибка: вы указали одинаковых пользователей.'
-        });
+        return replyPriv(interaction, { content: '❌ Ошибка: вы указали одинаковых пользователей.' });
       }
-
       const team = getTeam(name);
-      if (!team) {
-        return replyPriv(interaction, {
-          content: `❌ Ошибка: команда **${name}** не найдена.`
-        });
-      }
-
-      // Если команда уже завершена (получила результат), запрещаем изменения
-      if (team.lastResult) {
-        return replyPriv(interaction, {
-          content: '❌ Ошибка: команда уже завершена. Изменение состава недоступно.'
-        });
-      }
+      if (!team) return replyPriv(interaction, { content: `❌ Ошибка: команда **${name}** не найдена.` });
+      if (team.lastResult) return replyPriv(interaction, { content: '❌ Ошибка: команда уже завершена. Изменение состава недоступно.' });
 
       const idx = team.members.indexOf(oldUser.id);
-      if (idx === -1) {
-        return replyPriv(interaction, {
-          content: `❌ Ошибка: <@${oldUser.id}> не состоит в команде **${name}**.`
-        });
-      }
+      if (idx === -1) return replyPriv(interaction, { content: `❌ Ошибка: <@${oldUser.id}> не состоит в команде **${name}**.` });
+      if (team.members.includes(newUser.id)) return replyPriv(interaction, { content: `❌ Ошибка: <@${newUser.id}> уже состоит в команде **${name}**.` });
 
-      if (team.members.includes(newUser.id)) {
-        return replyPriv(interaction, {
-          content: `❌ Ошибка: <@${newUser.id}> уже состоит в команде **${name}**.`
-        });
-      }
-
-      // Заменяем участника
       team.members[idx] = newUser.id;
       updateTeam(name, { members: team.members });
+
+      const memberTags = await Promise.all(team.members.map((id) => fetchTagSafe(interaction.client, id)));
+      const oldTag = await fetchTagSafe(interaction.client, oldUser.id);
+      const newTag = await fetchTagSafe(interaction.client, newUser.id);
 
       await logAction('teamChange', interaction.guild, {
         admin: { id: interaction.user.id, tag: interaction.user.tag },
         name,
-        oldMember: oldUser.id,
-        newMember: newUser.id
+        change: `${oldTag} → ${newTag}`,
+        membersList: memberTags
       });
 
-      return replyPriv(interaction, {
-        content: `🔄 В команде **${name}** заменён <@${oldUser.id}> на <@${newUser.id}>.`
-      });
+      return replyPriv(interaction, { content: `🔄 В команде **${name}** заменён <@${oldUser.id}> на <@${newUser.id}>.` });
     }
   },
 
-  /**
-   * Удалить существующую команду.
-   * Опции: name (STRING)
-   */
   teamdelete: {
     adminOnly: true,
     async run(interaction) {
       const name = interaction.options.getString('name', true)?.trim();
       const removed = deleteTeam(name);
-      if (!removed) {
-        return replyPriv(interaction, {
-          content: `❌ Ошибка: команда **${name}** не найдена.`
-        });
-      }
+      if (!removed) return replyPriv(interaction, { content: `❌ Ошибка: команда **${name}** не найдена.` });
 
-      await logAction('teamDelete', interaction.guild, {
-        admin: { id: interaction.user.id, tag: interaction.user.tag },
-        name
-      });
-
-      return replyPriv(interaction, {
-        content: `🗑️ Команда **${name}** удалена.`
-      });
+      await logAction('teamDelete', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, name });
+      return replyPriv(interaction, { content: `🗑️ Команда **${name}** удалена.` });
     }
   },
 
-  /**
-   * Выставить результат команды и начислить XP по ставкам. После этого
-   * команда автоматически удаляется и её нельзя изменять.
-   * Опции: name (STRING), result (STRING: win|loss|draw)
-   */
   teamresult: {
     adminOnly: true,
     async run(interaction) {
@@ -753,13 +562,8 @@ const handlers = {
       const result = interaction.options.getString('result', true); // win | loss | draw
 
       const team = getTeam(name);
-      if (!team) {
-        return replyPriv(interaction, {
-          content: `❌ Ошибка: команда **${name}** не найдена.`
-        });
-      }
+      if (!team) return replyPriv(interaction, { content: `❌ Ошибка: команда **${name}** не найдена.` });
 
-      // Фиксируем результат
       updateTeam(name, { lastResult: result });
 
       // Обрабатываем ставки
@@ -772,99 +576,81 @@ const handlers = {
         affected++;
         if (xpPerToken > 0) {
           const xpGain = xpPerToken * bet.tokens;
-          // Сохраняем состояние пользователя до начисления XP
           const beforeU = await getUser(bet.userId);
-          await addXP(bet.userId, xpGain, 'teamBet');
-          totalXp += xpGain;
-          // Состояние после
+          const resTeam = await addXP(bet.userId, xpGain, 'teamBet');
+          totalXp += resTeam.xpGained;
           const afterU = await getUser(bet.userId);
-          // Запись в историю выплат
-          addBetHistory({
-            type: 'payout',
-            userId: bet.userId,
-            team: name,
-            tokens: bet.tokens,
-            members: team.members,
-            result,
-            xp: xpGain
-          });
-          // Разница наград по уровням
+          addBetHistory({ type: 'payout', userId: bet.userId, team: name, tokens: bet.tokens, members: team.members, result, xp: resTeam.xpGained });
+
           const diffDouble = (afterU.doubleTokens || 0) - (beforeU.doubleTokens || 0);
           const diffRaffle = (afterU.rafflePoints || 0) - (beforeU.rafflePoints || 0);
           const diffInvites = (afterU.invites || 0) - (beforeU.invites || 0);
-          const diffPacks = (afterU.cardPacks || 0) - (beforeU.cardPacks || 0);
+          const diffPacks   = (afterU.cardPacks || 0) - (beforeU.cardPacks || 0);
           const lvlNew = calculateLevel(afterU.xp || 0);
-          // Пользователь объекта для логов
-          const target = { id: bet.userId, tag: (await interaction.client.users.fetch(bet.userId)).tag };
-          if (diffDouble > 0) {
-            await logAction('bpReward', interaction.guild, {
-              user: target,
-              amount: diffDouble,
-              rewardType: 'doubleTokens',
-              level: lvlNew
-            });
-          }
-          if (diffRaffle > 0) {
-            await logAction('bpReward', interaction.guild, {
-              user: target,
-              amount: diffRaffle,
-              rewardType: 'rafflePoints',
-              level: lvlNew
-            });
-          }
-          if (diffInvites > 0) {
-            await logAction('bpReward', interaction.guild, {
-              user: target,
-              amount: diffInvites,
-              rewardType: 'invites',
-              level: lvlNew
-            });
-          }
-          if (diffPacks > 0) {
-            await logAction('bpReward', interaction.guild, {
-              user: target,
-              amount: diffPacks,
-              rewardType: 'cardPacks',
-              level: lvlNew
-            });
-          }
+          const target = { id: bet.userId, tag: await fetchTagSafe(interaction.client, bet.userId) };
+          if (diffDouble > 0) await logAction('bpReward', interaction.guild, { user: target, amount: diffDouble, rewardType: 'doubleTokens', level: lvlNew });
+          if (diffRaffle > 0) await logAction('bpReward', interaction.guild, { user: target, amount: diffRaffle,  rewardType: 'rafflePoints', level: lvlNew });
+          if (diffInvites > 0) await logAction('bpReward', interaction.guild, { user: target, amount: diffInvites,  rewardType: 'invites',      level: lvlNew });
+          if (diffPacks  > 0) await logAction('bpReward', interaction.guild, { user: target, amount: diffPacks,   rewardType: 'cardPacks',   level: lvlNew });
         }
       }
 
-      // Очистить ставки и записать результат
+      // Награды участникам команды — ленивый импорт config (во время run, НЕ на require)
+      let teamRewards = {};
+      try {
+        teamRewards = require('../config')?.teamRewards?.[result] || {};
+      } catch (_) { teamRewards = {}; }
+
+      const memberXPList = [];
+      for (const memberId of (team.members || [])) {
+        let gotXP = 0, baseXP = 0;
+        if (teamRewards.xp && Number(teamRewards.xp) > 0) {
+          const res = await addXP(memberId, Number(teamRewards.xp), 'teamMemberReward');
+          gotXP = res.xpGained; baseXP = res.xpBase;
+        }
+        const u = await getUser(memberId);
+        if (teamRewards.doubleTokens) { u.doubleTokens = (u.doubleTokens || 0) + Number(teamRewards.doubleTokens || 0); }
+        if (teamRewards.invites)      { u.invites      = (u.invites || 0)      + Number(teamRewards.invites || 0); }
+        if (teamRewards.rafflePoints) { u.rafflePoints = (u.rafflePoints || 0) + Number(teamRewards.rafflePoints || 0); }
+        if (teamRewards.cardPacks)    { u.cardPacks    = (u.cardPacks || 0)    + Number(teamRewards.cardPacks || 0); }
+        await setUser(memberId, u);
+
+        const tag = await fetchTagSafe(interaction.client, memberId);
+        memberXPList.push({ id: memberId, tag, gainedXp: gotXP, xpBase: baseXP });
+      }
+
+      // Сводка ставок
+      let betsSummary = '';
+      if (bets.length) {
+        const items = await Promise.all(bets.map(async b => {
+          const tag = await fetchTagSafe(interaction.client, b.userId);
+          const total = xpPerToken > 0 ? xpPerToken * b.tokens : 0;
+          return `• ${tag}: ${b.tokens} жет. ⇒ ${total} XP`;
+        }));
+        betsSummary = items.join('\n');
+      }
+
       clearBetsForTeam(name);
       addTeamResult(name, team.members, result);
-
-      // Удалить команду после результата
       deleteTeam(name);
 
       await logAction('teamResult', interaction.guild, {
         admin: { id: interaction.user.id, tag: interaction.user.tag },
-        name,
-        result,
-        affected,
-        totalXp
+        name, result, affected, totalXp,
+        membersXPList: memberXPList,
+        betsSummary
       });
 
-      const map = { win: 'победа', loss: 'поражение', draw: 'ничья' };
-      return replyPriv(interaction, {
-        content: `📊 Результат для **${name}**: **${map[result] || result}**. Обработано ставок: ${affected}. Начислено XP: ${totalXp}.`
-      });
+      return replyPriv(interaction, { content: `📊 Результат для **${name}**: **${result}**. Обработано ставок: ${affected}. Начислено XP: ${totalXp}.` });
     }
   },
 
-  /**
-   * Показать историю ставок пользователя. Опция: user (USER)
-   */
   bethistory: {
     adminOnly: true,
     async run(interaction) {
       const target = interaction.options.getUser('user', true);
       const events = getBetHistoryForUser(target.id);
-      if (!events || events.length === 0) {
-        return replyPriv(interaction, { content: `🕑 У пользователя <@${target.id}> нет истории ставок.` });
-      }
-
+      if (!events || events.length === 0) return replyPriv(interaction, { content: `🕑 У пользователя <@${target.id}> нет истории ставок.` });
       const lines = events.slice(-15).map((e) => {
         const date = new Date(e.ts).toLocaleString();
         if (e.type === 'bet') {
@@ -885,21 +671,15 @@ const handlers = {
     }
   },
 
-  /**
-   * Показать историю команд. Опция: name (STRING, опционально)
-   */
   teamhistory: {
     adminOnly: true,
     async run(interaction) {
       const name = interaction.options.getString('name', false);
       const events = getTeamHistory(name);
       if (!events || events.length === 0) {
-        if (name) {
-          return replyPriv(interaction, { content: `🕑 У команды **${name}** нет истории.` });
-        }
+        if (name) return replyPriv(interaction, { content: `🕑 У команды **${name}** нет истории.` });
         return replyPriv(interaction, { content: '🕑 Нет истории команд.' });
       }
-
       const lines = events.slice(-20).map((e) => {
         const date = new Date(e.ts).toLocaleString();
         if (e.type === 'create') {
@@ -914,48 +694,42 @@ const handlers = {
       });
 
       const title = name ? `История команды — ${name}` : 'История всех команд';
-      const embed = new EmbedBuilder()
-        .setColor(0x2b6cb0)
-        .setTitle(title)
-        .setDescription(lines.join('\n'));
+      const embed = new EmbedBuilder().setColor(0x2b6cb0).setTitle(title).setDescription(lines.join('\n'));
       return replyPriv(interaction, { embeds: [embed] });
     }
   }
 };
 
-// Экспорт с флагом adminOnly там, где нужно
+// Экспорт команд (ничего лишнего не выполняет)
 module.exports = {
   code: { run: handlers.code.run },
   usedd: { run: handlers.usedd.run },
   bp: { run: handlers.bp.run, adminOnly: false },
 
-  // Пользовательские/статусные
   bpstat: { run: handlers.bpstat.run, adminOnly: true },
   setcode: { run: handlers.setcode.run, adminOnly: true },
 
-  // Админ-операции
   xp: { run: handlers.xp.run, adminOnly: true },
   xpset: { run: handlers.xpset.run, adminOnly: true },
   xpinvite: { run: handlers.xpinvite.run, adminOnly: true },
+
   gpset: { run: handlers.gpset.run, adminOnly: true },
   ddset: { run: handlers.ddset.run, adminOnly: true },
-  // Установка числа инвайтов (админ)
   invset: { run: handlers.invset.run, adminOnly: true },
-  // Установка числа паков карт (админ)
   cpset: { run: handlers.cpset.run, adminOnly: true },
-  ddstart: { run: handlers.ddstart.run, adminOnly: true },
-  ddstop: { run: handlers.ddstop.run, adminOnly: true },
-  setlog: { run: handlers.setlog.run, adminOnly: true },
-  premiumon: { run: handlers.premiumon.run, adminOnly: true },
-  premiumoff: { run: handlers.premiumoff.run, adminOnly: true },
 
-  // Управление командами (админ)
+  bpreapply: { run: handlers.bpreapply.run, adminOnly: true },
+  userreset: { run: handlers.userreset.run, adminOnly: true },
+  dbreset:   { run: handlers.dbreset.run,   adminOnly: true },
+
+  ddstart: { run: handlers.ddstart.run, adminOnly: true },
+  ddstop:  { run: handlers.ddstop.run,  adminOnly: true },
+  setlog:  { run: handlers.setlog.run,  adminOnly: true },
+
   teamcreate: { run: handlers.teamcreate.run, adminOnly: true },
   teamchange: { run: handlers.teamchange.run, adminOnly: true },
   teamdelete: { run: handlers.teamdelete.run, adminOnly: true },
   teamresult: { run: handlers.teamresult.run, adminOnly: true },
-
-  // История (админ)
   bethistory: { run: handlers.bethistory.run, adminOnly: true },
-  teamhistory: { run: handlers.teamhistory.run, adminOnly: true }
+  teamhistory:{ run: handlers.teamhistory.run, adminOnly: true }
 };

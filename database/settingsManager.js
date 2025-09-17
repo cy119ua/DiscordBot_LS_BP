@@ -7,6 +7,8 @@ async function getSettings(guildId){
   return {
     logChannelId: s.logChannelId || null,
     ddEnabled: !!s.ddEnabled,
+    // ВАЖНО: добавили возврат текущего ID окна Double-Down
+    ddWindowId: Number.isInteger(s.ddWindowId) ? s.ddWindowId : 0,
     whitelistUsers: Array.isArray(s.whitelistUsers) ? s.whitelistUsers : [],
     whitelistRoles: Array.isArray(s.whitelistRoles) ? s.whitelistRoles : []
   };

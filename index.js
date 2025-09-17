@@ -108,7 +108,7 @@ client.once(Events.ClientReady, async () => {
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
     // Обработка выпадающих списков (StringSelectMenu) для пользовательских команд
-    if (interaction.isStringSelectMenu()) {
+        if (interaction.isStringSelectMenu()) {
       const customId = interaction.customId;
       // Форма customId: usedd_team_select:<userId>:<tokens>
       if (customId.startsWith('usedd_team_select:')) {
@@ -117,10 +117,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const tokensStr = parts[2];
         const tokens = Number(tokensStr);
         const selectedTeam = interaction.values[0];
+
         // Только сам пользователь может подтвердить свой выбор
         if (interaction.user.id !== userId) {
           return interaction.reply({ content: '❌ Это меню не для вас.', ephemeral: true });
         }
+
         try {
           // Импортируем необходимые менеджеры локально, чтобы избежать циклов
           const { getSettings } = require('./database/settingsManager');
@@ -135,6 +137,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
           if (!settings.ddEnabled) {
             return interaction.update({ content: '❌ Double-Down сейчас недоступен.', components: [] });
           }
+          const windowId = settings.ddWindowId || 0;
+
           // Проверяем существование команды
           const team = getTeam(selectedTeam);
           if (!team) {
@@ -142,18 +146,42 @@ client.on(Events.InteractionCreate, async (interaction) => {
             const available = names.length ? names.map((n) => `**${n}**`).join(', ') : 'нет';
             return interaction.update({ content: `❌ Команда **${selectedTeam}** не найдена. Доступные: ${available}.`, components: [] });
           }
-          // Проверяем баланс жетонов
+
+          // Загружаем пользователя
           const userRecord = await getUser(userId);
-          const before = Number(userRecord.doubleTokens || 0);
-          if (before < tokens) {
-            return interaction.update({ content: `❌ Недостаточно жетонов: есть ${before}, требуется ${tokens}.`, components: [] });
+          const balance = Number(userRecord.doubleTokens || 0);
+          if (balance < tokens) {
+            return interaction.update({ content: `❌ Недостаточно жетонов: есть ${balance}, требуется ${tokens}.`, components: [] });
           }
-          // Списываем жетоны
+
+          // Сброс окна, если ID изменился
+          if (!userRecord.ddWindow || userRecord.ddWindow.id !== windowId) {
+            userRecord.ddWindow = { id: windowId, usedTokens: 0, betTeam: null };
+          }
+
+          // Лимит 2 жетона за окно (одно применение на 2 жетона или два применения по 1)
+          const used = Number(userRecord.ddWindow.usedTokens || 0);
+          if (used + tokens > 2) {
+            const remain = Math.max(0, 2 - used);
+            return interaction.update({ content: `❌ Лимит жетонов на окно — 2. Доступно: ${remain}.`, components: [] });
+          }
+
+          // Привязка к одной команде в текущем окне
+          if (userRecord.ddWindow.betTeam && userRecord.ddWindow.betTeam !== selectedTeam) {
+            return interaction.update({ content: `❌ В этом окне уже была ставка на **${userRecord.ddWindow.betTeam}**. Ставка может быть только на одну команду.`, components: [] });
+          }
+
+          // Списываем жетоны и фиксируем использование в текущем окне
+          const before = balance;
           userRecord.doubleTokens = before - tokens;
+          userRecord.ddWindow.usedTokens = used + tokens;
+          if (!userRecord.ddWindow.betTeam) userRecord.ddWindow.betTeam = selectedTeam;
           await setUser(userId, userRecord);
+
           // Сохраняем ставку и историю
           await addBet(userId, selectedTeam, tokens);
           addBetHistory({ type: 'bet', userId, team: selectedTeam, tokens, members: team.members, xp: 0 });
+
           // Логирование
           await logAction('doubleStake', interaction.guild, {
             user: { id: userId, tag: interaction.user.tag },
@@ -161,16 +189,23 @@ client.on(Events.InteractionCreate, async (interaction) => {
             team: selectedTeam,
             beforeTokens: before,
             afterTokens: userRecord.doubleTokens,
+            windowId,
+            usedInWindow: userRecord.ddWindow.usedTokens
           });
-          // Обновляем сообщение, убирая меню
-          return interaction.update({ content: `✅ Ставка принята: ${tokens} жетон(ов) на команду **${selectedTeam}**. Осталось жетонов: ${userRecord.doubleTokens}.`, components: [] });
+
+          // Ответ пользователю
+          return interaction.update({
+            content: `✅ Ставка принята на **${selectedTeam}**: ${tokens} жетон(а). Осталось жетонов: ${userRecord.doubleTokens}. (Окно #${windowId}: ${userRecord.ddWindow.usedTokens}/2)`,
+            components: []
+          });
         } catch (e) {
           console.error('usedd select error:', e);
           return interaction.update({ content: '❌ Ошибка при обработке выбора команды.', components: [] });
         }
       }
-      // Если это другой select-меню, игнорируем, другие типы меню пока не используются
+      // другие select-меню — игнорируем
     }
+
 
     // Обработка автодополнения для параметров типа STRING
     if (interaction.isAutocomplete()) {

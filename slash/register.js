@@ -28,26 +28,13 @@ const publicCommands = [
     ]
   },
   {
-    name: 'usedd',
-    description: 'Использовать даблжетоны для ставки на команду',
-    options: [
-      {
-        name: 'tokens',
-        description: 'Количество жетонов',
-        type: 4,
-        required: true,
-        min_value: 1,
-        max_value: 50
-      },
-      {
-        name: 'team',
-        description: 'Команда (оставьте пустым для автодополнения)',
-        type: 3,
-        required: false,
-        autocomplete: true
-      }
-    ]
-  }
+  name: 'usedd',
+  description: 'Использовать даблжетоны для ставки на команду',
+  options: [
+    { name: 'tokens', description: 'Количество жетонов (1 или 2)', type: 4, required: true, min_value: 1, max_value: 2 },
+    { name: 'team',   description: 'Команда (оставьте пустым для выбора из списка)', type: 3, required: false, autocomplete: true }
+  ]
+}
 ];
 
 // Админ-команды — по умолчанию НИКОМУ не видны (default_member_permissions: '0').
@@ -123,8 +110,8 @@ const adminOnlyCommands = [
       { name: 'amount', description: 'Количество паков', type: 4, required: true }
     ]
   },
-  { name: 'ddstart', description: 'Открыть окно Double-Down', default_member_permissions: '0' },
-  { name: 'ddstop',  description: 'Закрыть окно Double-Down', default_member_permissions: '0' },
+  { name: 'ddstart', description: 'Открыть окно Double-Down',  },
+  { name: 'ddstop',  description: 'Закрыть окно Double-Down',  },
   {
     name: 'setlog',
     description: 'Установить лог-канал',
