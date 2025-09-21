@@ -1,0 +1,18 @@
+{
+  "123456789012345678": {
+    "nickname": "Alice",
+    "premium": true,
+    "stats": {
+      "messages": 0,
+      "points": 0
+    }
+  },
+  "234567890123456789": {
+    "nickname": "Bob",
+    "premium": false,
+    "stats": {
+      "messages": 0,
+      "points": 0
+    }
+  }
+}

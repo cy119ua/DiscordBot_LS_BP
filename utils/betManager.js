@@ -52,4 +52,43 @@ function getBetsForUser(userId) {
   return loadBets().filter((b) => b.userId === userId);
 }
 
-module.exports = { addBet, getBetsForTeam, clearBetsForTeam, getBetsForUser };
+/**
+ * Удаляет ставки пользователя на указанную команду. Если у пользователя
+ * были размещены ставки на эту команду, они будут удалены, а остальные
+ * ставки останутся без изменений.
+ * @param {string} userId ID пользователя
+ * @param {string} team Название команды
+ */
+function removeBetsForUserAndTeam(userId, team) {
+  const bets = loadBets().filter((b) => {
+    // Сохраняем ставки, если либо userId не совпадает, либо команда отличается
+    return !(String(b.userId) === String(userId) && String(b.team) === String(team));
+  });
+  saveBets(bets);
+}
+
+/**
+ * Удаляет все активные ставки пользователя, независимо от команды.
+ * @param {string} userId ID пользователя
+ */
+function removeBetsForUser(userId) {
+  const bets = loadBets().filter((b) => String(b.userId) !== String(userId));
+  saveBets(bets);
+}
+
+/**
+ * Полностью очищает список активных ставок. Полезно для полного сброса БД.
+ */
+function clearAllBets() {
+  saveBets([]);
+}
+
+module.exports = {
+  addBet,
+  getBetsForTeam,
+  clearBetsForTeam,
+  getBetsForUser,
+  removeBetsForUserAndTeam,
+  removeBetsForUser,
+  clearAllBets
+};

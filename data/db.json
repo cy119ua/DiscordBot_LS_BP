@@ -1,128 +1,638 @@
 {
-  "user_656899242593484823": {
-    "xp": 0,
-    "invites": 0,
-    "rafflePoints": 6,
-    "doubleTokens": 4,
-    "cardPacks": 20,
-    "premium": true,
-    "premium_since": "2025-09-16T17:02:54.788Z",
-    "id": "656899242593484823",
-    "ddWindow": {
-      "id": 1,
-      "usedTokens": 2,
-      "betTeam": "qwe2"
-    }
-  },
-  "settings_984179219389116457": {
-    "logChannelId": "1413853448566210682",
-    "ddEnabled": true,
-    "whitelistUsers": [
-      "311247030422863882",
-      "656899242593484823"
-    ],
-    "whitelistRoles": []
-  },
-  "promo_1477": {
-    "code": "1477",
-    "rewards": {
-      "xp": 50
-    },
-    "expiresAt": "2025-09-16T21:24:00.817Z",
-    "maxUses": 1,
-    "usedCount": 1,
-    "usedBy": [
-      "656899242593484823"
-    ],
-    "createdAt": "2025-09-16T21:19:00.817Z"
-  },
-  "user_925482701723693196": {
-    "xp": 660,
-    "invites": 0,
-    "rafflePoints": 0,
-    "doubleTokens": 0,
-    "premium": true,
-    "premium_since": "2025-09-07T16:29:05.843Z",
-    "id": "925482701723693196"
-  },
-  "user_406088091946844170": {
-    "xp": 0,
-    "invites": 0,
-    "rafflePoints": 0,
-    "doubleTokens": 3,
-    "premium": false,
-    "premium_since": null,
-    "id": "406088091946844170"
-  },
-  "user_585006069294563348": {
-    "xp": 0,
-    "invites": 0,
-    "rafflePoints": 0,
-    "doubleTokens": 2,
-    "premium": false,
-    "premium_since": null,
-    "id": "585006069294563348"
-  },
-  "user_311247030422863882": {
-    "xp": 3561,
-    "invites": 0,
-    "rafflePoints": 0,
-    "doubleTokens": 97,
-    "cardPacks": 0,
-    "premium": true,
-    "premium_since": "2025-09-15T22:18:25.381Z",
-    "id": "311247030422863882",
-    "ddWindow": {
-      "id": 1,
-      "usedTokens": 2,
-      "betTeam": "qwe2"
-    }
-  },
   "settings_328205360466755584": {
-    "logChannelId": "1417241042373181510",
-    "ddEnabled": true,
+    "logChannelId": "1418589498757091398",
+    "ddEnabled": false,
     "ddWindowId": 1,
     "whitelistUsers": [],
     "whitelistRoles": []
   },
-  "user_1412090027621748877": {
-    "xp": 0,
+  "user_287636774786826241": {
+    "xp": 1,
     "invites": 0,
     "rafflePoints": 0,
     "doubleTokens": 0,
-    "cardPacks": 0,
-    "premium": false,
-    "premium_since": null,
-    "id": "1412090027621748877"
+    "cardPacks": 1,
+    "premium": true,
+    "premium_since": "2025-09-19T17:17:54.393Z",
+    "matchesPlayed": 0,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "287636774786826241"
   },
-  "user_1357975409676783756": {
-    "xp": 0,
+  "user_656899242593484823": {
+    "xp": 397,
     "invites": 0,
-    "rafflePoints": 0,
+    "rafflePoints": 2,
     "doubleTokens": 0,
-    "cardPacks": 0,
-    "premium": false,
-    "premium_since": null,
-    "id": "1357975409676783756"
+    "cardPacks": 3,
+    "premium": true,
+    "premium_since": "2025-09-19T17:18:03.145Z",
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "656899242593484823"
   },
-  "user_375805687529209857": {
-    "xp": 0,
+  "user_815337025410301972": {
+    "xp": 1,
     "invites": 0,
     "rafflePoints": 0,
     "doubleTokens": 0,
-    "cardPacks": 0,
-    "premium": false,
-    "premium_since": null,
-    "id": "375805687529209857"
+    "cardPacks": 1,
+    "premium": true,
+    "premium_since": "2025-09-19T17:18:11.081Z",
+    "matchesPlayed": 0,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "815337025410301972"
   },
-  "user_310848622642069504": {
-    "xp": 0,
+  "user_247994595332456448": {
+    "xp": 1,
     "invites": 0,
     "rafflePoints": 0,
     "doubleTokens": 0,
-    "cardPacks": 0,
+    "cardPacks": 1,
+    "premium": true,
+    "premium_since": "2025-09-19T17:18:17.478Z",
+    "matchesPlayed": 0,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "247994595332456448"
+  },
+  "user_422790934632202256": {
+    "xp": 111,
+    "invites": 0,
+    "rafflePoints": 0,
+    "doubleTokens": 0,
+    "cardPacks": 2,
+    "premium": true,
+    "premium_since": "2025-09-19T17:18:23.500Z",
+    "matchesPlayed": 0,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "422790934632202256"
+  },
+  "user_541220099080716288": {
+    "xp": 1220,
+    "invites": 0,
+    "rafflePoints": 3,
+    "doubleTokens": 1,
+    "cardPacks": 13,
+    "premium": true,
+    "premium_since": "2025-09-19T17:18:45.632Z",
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "541220099080716288"
+  },
+  "user_369169960972582923": {
+    "xp": 1385,
+    "invites": 0,
+    "rafflePoints": 4,
+    "doubleTokens": 1,
+    "cardPacks": 13,
+    "premium": true,
+    "premium_since": "2025-09-19T17:18:51.505Z",
+    "matchesPlayed": 1,
+    "winsInRow": 1,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "369169960972582923"
+  },
+  "user_325973701843484682": {
+    "xp": 1220,
+    "invites": 0,
+    "rafflePoints": 3,
+    "doubleTokens": 1,
+    "cardPacks": 13,
+    "premium": true,
+    "premium_since": "2025-09-19T17:19:03.138Z",
+    "matchesPlayed": 0,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "325973701843484682"
+  },
+  "user_303877447542112268": {
+    "xp": 397,
+    "invites": 0,
+    "rafflePoints": 2,
+    "doubleTokens": 0,
+    "cardPacks": 3,
+    "premium": true,
+    "premium_since": "2025-09-19T17:19:38.155Z",
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "303877447542112268"
+  },
+  "user_311247030422863882": {
+    "xp": 9360,
+    "invites": 0,
+    "rafflePoints": 10,
+    "doubleTokens": 4,
+    "cardPacks": 22,
     "premium": false,
     "premium_since": null,
-    "id": "310848622642069504"
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "311247030422863882"
+  },
+  "user_379999009646968832": {
+    "xp": 200,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 0,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "379999009646968832"
+  },
+  "user_338664218771587075": {
+    "xp": 360,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "338664218771587075"
+  },
+  "user_638730198346366989": {
+    "xp": 260,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "638730198346366989"
+  },
+  "user_556558172257517578": {
+    "xp": 260,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "556558172257517578"
+  },
+  "user_387875740768534528": {
+    "xp": 260,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "387875740768534528"
+  },
+  "user_293102431196413953": {
+    "xp": 360,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "293102431196413953"
+  },
+  "user_1381276644211294321": {
+    "xp": 360,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "1381276644211294321"
+  },
+  "user_619601396442071042": {
+    "xp": 260,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "619601396442071042"
+  },
+  "user_269114827148886038": {
+    "xp": 260,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "269114827148886038"
+  },
+  "user_812035664131391489": {
+    "xp": 260,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "812035664131391489"
+  },
+  "user_1388257537144393842": {
+    "xp": 260,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "1388257537144393842"
+  },
+  "user_492692650567139338": {
+    "xp": 260,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "492692650567139338"
+  },
+  "user_553876087428349967": {
+    "xp": 260,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "553876087428349967"
+  },
+  "user_602219755817926746": {
+    "xp": 260,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "602219755817926746"
+  },
+  "user_458639358208114698": {
+    "xp": 260,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "458639358208114698"
+  },
+  "user_203058168408965120": {
+    "xp": 260,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "203058168408965120"
+  },
+  "user_1255636749464637443": {
+    "xp": 260,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "1255636749464637443"
+  },
+  "user_789560526630944790": {
+    "xp": 260,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "789560526630944790"
+  },
+  "user_221676658011144193": {
+    "xp": 100,
+    "invites": 0,
+    "rafflePoints": 0,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 0,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "221676658011144193"
+  },
+  "user_515905974314205195": {
+    "xp": 350,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 1,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "515905974314205195"
+  },
+  "user_677554169921667112": {
+    "xp": 350,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 1,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "677554169921667112"
+  },
+  "user_375361883101724672": {
+    "xp": 350,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 1,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "375361883101724672"
+  },
+  "user_401073642408247298": {
+    "xp": 350,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 1,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "401073642408247298"
+  },
+  "user_275263116965576705": {
+    "xp": 200,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "275263116965576705"
+  },
+  "user_429654490791280640": {
+    "xp": 200,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "429654490791280640"
+  },
+  "user_375319847539703811": {
+    "xp": 200,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "375319847539703811"
+  },
+  "user_398401458028150786": {
+    "xp": 200,
+    "invites": 0,
+    "rafflePoints": 1,
+    "doubleTokens": 0,
+    "cardPacks": 1,
+    "premium": false,
+    "premium_since": null,
+    "matchesPlayed": 1,
+    "winsInRow": 0,
+    "achievements": {
+      "ninePlayed": false,
+      "twelvePlayed": false,
+      "fourWinsStreak": false
+    },
+    "id": "398401458028150786"
   }
 }

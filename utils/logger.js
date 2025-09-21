@@ -93,6 +93,26 @@ async function logAction(type, guild, details = {}) {
     }
     if (details.change) lines.push(`**Замена:** ${details.change}`);
 
+    // Дополнительные поля для прогнозов
+    if (details.match) {
+      // Форматируем матч key в более читаемый вид: team1 vs team2
+      const mk = String(details.match);
+      if (mk.includes('_')) {
+        const parts = mk.split('_');
+        lines.push(`**Матч:** ${parts[0]} vs ${parts[1]}`);
+      } else {
+        lines.push(`**Матч:** ${mk}`);
+      }
+    }
+    if (typeof details.prediction === 'string') {
+      lines.push(`**Прогноз:** ${details.prediction}`);
+    }
+
+    // Если это выплата за правильный прогноз, добавляем пояснение
+    if (type === 'predictionPayout') {
+      lines.push('**Получено за:** правильный прогноз');
+    }
+
     // Расширенный блок для /teamresult
     if (Array.isArray(details.membersXPList) && details.membersXPList.length) {
       lines.push(`\n**Участники команды:**`);
@@ -115,6 +135,20 @@ async function logAction(type, guild, details = {}) {
     }
 
     embed.setDescription(lines.join('\n'));
+    // Отправляем пинг админа отдельно, если требуется. Пинг выполняется
+    // через content-свойство сообщения, чтобы Discord корректно
+    // оповестил администратора. Admin ID берётся из конфигурации.
+    if (details.pingAdmin) {
+      try {
+        const config = require('../config');
+        // По умолчанию берём второго элемента в списке adminUsers (фрокенг)
+        const adminId = Array.isArray(config.adminUsers) && config.adminUsers[1];
+        if (adminId) {
+          await channel.send({ content: `<@${adminId}>`, embeds: [embed] });
+          return;
+        }
+      } catch {}
+    }
     await channel.send({ embeds: [embed] });
   } catch (e) {
     console.error('logAction error:', e);

@@ -35,6 +35,13 @@ const publicCommands = [
     { name: 'team',   description: 'Команда (оставьте пустым для выбора из списка)', type: 3, required: false, autocomplete: true }
   ]
 }
+  ,
+  {
+    name: 'predict',
+    description: 'Сделать прогноз на исход параллельного матча',
+    // Опции убраны, т.к. прогноз теперь выбирается через выпадающий список.
+    options: []
+  }
 ];
 
 // Админ-команды — по умолчанию НИКОМУ не видны (default_member_permissions: '0').
@@ -69,9 +76,9 @@ const adminOnlyCommands = [
   {
     name: 'xpinvite',
     description: 'Выдать +100 XP и +1 инвайт',
-     
     options: [
-      { name: 'user', description: 'Пользователь', type: 6, required: true }
+      { name: 'user', description: 'Пользователь (кому начислить XP и инвайт)', type: 6, required: true },
+      { name: 'added', description: 'Приглашаемый пользователь (опционально)', type: 6, required: false }
     ]
   },
   {
@@ -165,8 +172,18 @@ const adminOnlyCommands = [
     description: 'Заменить участника в команде',
      
     options: [
+      // Имя команды остаётся строкой с автодополнением
       { name: 'name', description: 'Название команды', type: 3, required: true, autocomplete: true },
-      { name: 'old', description: 'Кого заменить', type: 6, required: true },
+      /*
+       * Кого заменить в команде. Discord не поддерживает автодополнение
+       * для опций типа USER, поэтому параметр `old` объявлен как строка.
+       * Бот использует автодополнение, чтобы предлагать только участников
+       * выбранной команды (см. обработку в index.js). В выдаче предложений
+       * отображается ник/тег пользователя, а в значение подставляется
+       * строка-пинг вида `<@1234567890>`. При обработке команды ID
+       * извлекается из этой строки, чтобы заменить участника.
+       */
+      { name: 'old', description: 'Кого заменить', type: 3, required: true, autocomplete: true },
       { name: 'new', description: 'Новый участник', type: 6, required: true }
     ]
   },
@@ -177,6 +194,14 @@ const adminOnlyCommands = [
     options: [
       { name: 'name', description: 'Название команды', type: 3, required: true, autocomplete: true }
     ]
+  },
+  {
+    name: 'backup',
+    description: 'Создать резервную копию базы данных'
+  },
+  {
+    name: 'restore',
+    description: 'Восстановить базу данных из последней копии'
   },
   {
     name: 'teamresult',
@@ -211,6 +236,38 @@ const adminOnlyCommands = [
      
     options: [
       { name: 'name', description: 'Название команды', type: 3, required: false, autocomplete: true }
+    ]
+  }
+  ,
+  {
+    name: 'userreset',
+    description: 'Сбросить статистику одного пользователя',
+    options: [
+      { name: 'user', description: 'Пользователь', type: 6, required: true }
+    ]
+  }
+  ,
+  {
+    name: 'dbreset',
+    description: 'Сбросить статистику всех пользователей',
+    options: [
+      { name: 'confirm', description: 'Подтвердите выполнение', type: 5, required: true }
+    ]
+  }
+  ,
+  {
+    name: 'usersprem',
+    description: 'Показать всех премиум‑пользователей',
+    // Эта команда не принимает параметров
+    options: []
+  }
+  ,
+  {
+    name: 'bpreapply',
+    description: 'Доначислить недостающие награды Боевого пропуска',
+    options: [
+      { name: 'user', description: 'Пользователь', type: 6, required: true },
+      { name: 'includexp', description: 'Также пересчитать XP-награды', type: 5, required: false }
     ]
   }
 ];

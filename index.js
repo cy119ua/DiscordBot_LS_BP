@@ -1,6 +1,10 @@
 require('dotenv').config();
 
 const { Client, GatewayIntentBits, Events, PermissionFlagsBits } = require('discord.js');
+// Менеджер резервного копирования.  Используется для планового создания
+// ежедневных снимков базы данных.  Функция scheduleDailyBackup() будет
+// вызвана после успешного подключения клиента.
+const { scheduleDailyBackup } = require('./utils/backupManager');
 const config = require('./config'); // для доступа к adminUsers
 // Заменяем @replit/database на локальную реализацию базы данных
 // utils/db.js предоставляет класс Client, совместимый по API, сохраняющий
@@ -102,6 +106,15 @@ client.once(Events.ClientReady, async () => {
    * Администраторские команды теперь видны всем (см. register.js),
    * а реальная проверка доступа выполняется в isWhitelisted().
    */
+
+  // Запускаем ежедневное создание бэкапов.  Отчёты об ошибках будут
+  // выводиться в консоль.  Бэкапы сохраняются в директорию
+  // `data/backups` и не блокируют остальные обработчики.
+  try {
+    scheduleDailyBackup();
+  } catch (e) {
+    console.error('[index] Failed to schedule daily backups:', e);
+  }
 });
 
 // Обработка интеракций: slash + кнопки
@@ -203,6 +216,122 @@ client.on(Events.InteractionCreate, async (interaction) => {
           return interaction.update({ content: '❌ Ошибка при обработке выбора команды.', components: [] });
         }
       }
+      // Обработка выбора матча для прогноза
+      if (customId.startsWith('predict_match_select:')) {
+        // customId: predict_match_select:<userId>
+        const parts = customId.split(':');
+        const userId = parts[1];
+        const selectedMatch = interaction.values[0];
+        // Только пользователь, вызвавший меню, может продолжить
+        if (interaction.user.id !== userId) {
+          return interaction.reply({ content: '❌ Это меню не для вас.',
+                                     ephemeral: true });
+        }
+        try {
+          const { getSettings } = require('./database/settingsManager');
+          const { getTeam } = require('./utils/teamManager');
+          const { getPredictionsForUser } = require('./utils/predictionManager');
+          const settings = await getSettings(interaction.guild.id);
+          if (!settings.ddEnabled) {
+            return interaction.update({ content: '❌ Прогнозы сейчас недоступны.', components: [] });
+          }
+          // Разбираем выбранный матч
+          const [team1, team2] = selectedMatch.split('_');
+        // Вычисляем номер текущего окна Double‑Down
+        const ddWindowId = settings.ddWindowId || 0;
+        // Смотрим, есть ли у пользователя уже прогноз в этом окне
+        const userPreds = getPredictionsForUser(String(userId));
+        if (userPreds.find((p) => p.ddWindowId === ddWindowId)) {
+          return interaction.update({ content: '❌ Вы уже сделали прогноз в этом окне Double-Down. Дождитесь следующего /ddstart.', components: [] });
+        }
+        // Проверяем, что пользователь ещё не делал прогноз на этот матч
+        const existing = userPreds.find((p) => p.matchKey === selectedMatch);
+        if (existing) {
+          return interaction.update({ content: '❌ Вы уже сделали прогноз на этот матч.', components: [] });
+        }
+          // Убеждаемся, что обе команды существуют
+          const t1 = getTeam(team1);
+          const t2 = getTeam(team2);
+          if (!t1 || !t2) {
+            return interaction.update({ content: '❌ Одна или обе команды не найдены.', components: [] });
+          }
+          // Строим меню выбора исхода
+          const { StringSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
+          const resultSelect = new StringSelectMenuBuilder()
+            .setCustomId(`predict_result_select:${userId}:${selectedMatch}`)
+            .setPlaceholder('Выберите исход матча')
+            .addOptions([
+              { label: `Победа ${team1}`, value: 'team1' },
+              { label: 'Ничья', value: 'draw' },
+              { label: `Победа ${team2}`, value: 'team2' }
+            ]);
+          const resultRow = new ActionRowBuilder().addComponents(resultSelect);
+          return interaction.update({ content: `Матч **${team1}** vs **${team2}**. Выберите исход:`, components: [resultRow] });
+        } catch (e) {
+          console.error('predict match select error:', e);
+          return interaction.update({ content: '❌ Ошибка при обработке прогноза.', components: [] });
+        }
+      }
+      // Обработка выбора исхода прогноза
+      if (customId.startsWith('predict_result_select:')) {
+        // customId: predict_result_select:<userId>:<matchKey>
+        const parts = customId.split(':');
+        const userId = parts[1];
+        // matchKey может содержать символ '_', поэтому берем оставшуюся часть
+        const matchKey = parts.slice(2).join(':');
+        const resultVal = interaction.values[0];
+        if (interaction.user.id !== userId) {
+          return interaction.reply({ content: '❌ Это меню не для вас.',
+                                     ephemeral: true });
+        }
+        try {
+          const { getSettings } = require('./database/settingsManager');
+          const { getTeam } = require('./utils/teamManager');
+          const { addPrediction, getPredictionsForUser } = require('./utils/predictionManager');
+          const { logAction } = require('./utils/logger');
+          const settings = await getSettings(interaction.guild.id);
+          if (!settings.ddEnabled) {
+            return interaction.update({ content: '❌ Прогнозы сейчас недоступны.', components: [] });
+          }
+          const [team1, team2] = matchKey.split('_');
+          const t1 = getTeam(team1);
+          const t2 = getTeam(team2);
+          if (!t1 || !t2) {
+            return interaction.update({ content: '❌ Одна или обе команды не найдены.', components: [] });
+          }
+        // Вычисляем номер текущего окна Double‑Down
+        const ddWindowId = settings.ddWindowId || 0;
+        // Смотрим, есть ли у пользователя уже прогноз в этом окне
+        const userPreds = getPredictionsForUser(String(userId));
+        if (userPreds.find((p) => p.ddWindowId === ddWindowId)) {
+          return interaction.update({ content: '❌ Вы уже сделали прогноз в этом окне Double-Down. Дождитесь следующего /ddstart.', components: [] });
+        }
+        // Проверяем дублирование для выбранного матча
+        const existing = userPreds.find((p) => p.matchKey === matchKey);
+        if (existing) {
+          return interaction.update({ content: '❌ Вы уже сделали прогноз на этот матч.', components: [] });
+        }
+        // Сохраняем прогноз с учётом номера окна Double‑Down
+        addPrediction(userId, matchKey, resultVal, ddWindowId);
+          // Логирование с подробностями
+          await logAction('predictionAdd', interaction.guild, {
+            user: { id: userId, tag: interaction.user.tag },
+            match: matchKey,
+            teams: [team1, team2],
+            prediction: resultVal
+          });
+          // Формируем описание исхода
+          const outcomeDesc = resultVal === 'team1'
+            ? `победа ${team1}`
+            : resultVal === 'team2'
+              ? `победа ${team2}`
+              : 'ничья';
+          return interaction.update({ content: `✅ Ваш прогноз принят: матч **${team1}** vs **${team2}**, исход **${outcomeDesc}**.`, components: [] });
+        } catch (e) {
+          console.error('predict result select error:', e);
+          return interaction.update({ content: '❌ Ошибка при обработке прогноза.', components: [] });
+        }
+      }
       // другие select-меню — игнорируем
     }
 
@@ -218,6 +347,48 @@ client.on(Events.InteractionCreate, async (interaction) => {
           const teams = getAllTeams();
           const names = Object.keys(teams).slice(0, 25);
           return interaction.respond(names.map((n) => ({ name: n, value: n })));
+        }
+        // Автодополнение для выбора участника команды (параметр 'old' в /teamchange).
+        if (optionName === 'old') {
+          try {
+            // Для корректной работы необходимо, чтобы параметр 'name' уже был введён.
+            const teamName = interaction.options.getString('name');
+            if (!teamName) return interaction.respond([]);
+            const { getTeam } = require('./utils/teamManager');
+            const team = getTeam(teamName);
+            if (!team || !Array.isArray(team.members)) return interaction.respond([]);
+            // Формируем список предложений, отображая ник или тег пользователя.  В
+            // значении каждого варианта указываем пинг (`<@id>`), чтобы пользователь
+            // видел привычный ник вместо числового ID. В хендлере команды ID будет
+            // извлечён из этой строки.
+            const memberIds = team.members.slice(0, 25).map((uid) => String(uid));
+            const suggestions = [];
+            for (const uid of memberIds) {
+              let display = uid;
+              try {
+                // Пытаемся получить ник на сервере; если участник отсутствует в кэше,
+                // происходит запрос к API Discord. Если ника нет, используем тег.
+                const member = await interaction.guild.members.fetch(uid);
+                if (member) {
+                  display = member.displayName || (member.user && member.user.tag) || uid;
+                }
+              } catch (fetchErr) {
+                try {
+                  const user = await interaction.client.users.fetch(uid);
+                  display = user.tag || uid;
+                } catch {
+                  display = uid;
+                }
+              }
+              // Формируем mention, чтобы пользователь видел привычный ник вместо цифрового ID
+              const mention = `<@${uid}>`;
+              suggestions.push({ name: display, value: mention });
+            }
+            return interaction.respond(suggestions);
+          } catch (err) {
+            console.error('autocomplete old error:', err);
+            return interaction.respond([]);
+          }
         }
       } catch (e) {
         console.error('autocomplete error:', e);

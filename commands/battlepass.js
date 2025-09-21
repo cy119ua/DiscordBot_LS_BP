@@ -48,22 +48,26 @@ function makePageButtons(currentPage) {
   ];
 }
 
-function makeEmbed({ user, page, level, xp, invites = 0, doubleTokens = 0, rafflePoints = 0, cardPacks = 0 }) {
+function makeEmbed({ user, page, level, xp, invites = 0, doubleTokens = 0, rafflePoints = 0, cardPacks = 0, isPremium = false }) {
   const prog = calculateXPProgress(xp || 0);
+  // Формируем отображение имени пользователя.  Если у пользователя есть
+  // премиум‑статус, добавляем звёздочку (*) сразу после упоминания.
+  // При наличии премиум‑статуса выводим символ ⭐ после упоминания
+  const mention = isPremium ? `<@${user.id}> ⭐` : `<@${user.id}>`;
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
     .setTitle('Боевой пропуск')
     .setDescription(
-      `Пользователь: <@${user.id}>\n` +
+      `Пользователь: ${mention}\n` +
       `Уровень: **${level}**\n` +
       `Опыт: **${xp}** (${prog.progress})\n` +
       `Приглашения: **${invites}**\n` +
       `Двойные ставки: **${doubleTokens}**\n` +
       `Паки карт: **${cardPacks}**\n` +
-      `Очки розыгрыша: **${rafflePoints}**\n` +
-      `Страница: **${pageLabel(page)}**`
+      `Очки розыгрыша: **${rafflePoints}**`
     )
-    .setFooter({ text: `Страница ${page}/10` })
+    // Убираем отображение номера страницы в футере, чтобы не показывать номер
+    // .setFooter({ text: `Страница ${page}/10` })
     .setTimestamp();
 
   // Показываем либо статичный URL, либо позже заменим на attachment с оверлеем
@@ -89,7 +93,8 @@ async function onButton(interaction) {
     invites: u.invites || 0,
     doubleTokens: u.doubleTokens || 0,
     rafflePoints: u.rafflePoints || 0,
-    cardPacks: u.cardPacks || 0
+    cardPacks: u.cardPacks || 0,
+    isPremium: !!u.premium
   });
   const components = makePageButtons(page);
 
