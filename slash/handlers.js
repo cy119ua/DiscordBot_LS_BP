@@ -33,7 +33,7 @@ const { readJSON, writeJSON } = require('../utils/storage');
 // Используется в /predict и /teamresult, чтобы обеспечить единое определение пар.
 const STATIC_PAIRS = [
   ['Месси', 'Роналду'],
-  ['Хемилтон', 'Феттель'],
+  ['Хэмилтон', 'Феттель'],
   ['Надаль', 'Федерер']
 ];
 
@@ -302,11 +302,16 @@ const handlers = {
       // Сохраняем прогноз с ddWindowId
       addPrediction(interaction.user.id, matchKey, resultVal, ddWindowId);
       // Логируем событие, включая список команд и исход
+      // Для лога: прогноз как название команды, а не team1/team2
+      let logOutcomeDesc;
+      if (resultVal === 'team1') logOutcomeDesc = team1;
+      else if (resultVal === 'team2') logOutcomeDesc = team2;
+      else logOutcomeDesc = 'ничья';
       await logAction('predictionAdd', interaction.guild, {
         user: { id: interaction.user.id, tag: interaction.user.tag },
         match: matchKey,
         teams: [sorted[0], sorted[1]],
-        prediction: resultVal
+        prediction: logOutcomeDesc
       });
       // Формируем строку с описанием исхода для пользователя и для лога
       let outcomeDesc;
