@@ -443,6 +443,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     await handler.run(interaction, client);
   } catch (e) {
+    // Фильтруем ошибки DiscordAPIError[10062] и [40060] (Unknown interaction, Interaction has already been acknowledged)
+    const code = e?.code || e?.rawError?.code;
+    if (code === 10062 || code === 40060) {
+      // Не выводим эти ошибки в терминал
+      return;
+    }
+    // Все остальные ошибки логируем
     console.error('Interaction error:', e);
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({ content: '❌ Ошибка при обработке команды.', ephemeral: true });
