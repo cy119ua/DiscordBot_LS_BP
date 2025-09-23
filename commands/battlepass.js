@@ -122,7 +122,16 @@ async function onButton(interaction, client) {
     }
   } catch {}
 
-  return interaction.update({ embeds: [embed], components, files });
+  try {
+    return await interaction.update({ embeds: [embed], components, files });
+  } catch (e) {
+    if (e?.code === 10062 || (e?.rawError && e.rawError.code === 10062)) {
+      // Unknown interaction — игнорируем
+      return;
+    }
+    // Все остальные ошибки логируем
+    console.error('[BP page button error]', e);
+  }
 }
 
 module.exports = { onButton, makeEmbed, makePageButtons };
