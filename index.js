@@ -4,7 +4,7 @@ const { Client, GatewayIntentBits, Events, PermissionFlagsBits } = require('disc
 // Менеджер резервного копирования.  Используется для планового создания
 // ежедневных снимков базы данных.  Функция scheduleDailyBackup() будет
 // вызвана после успешного подключения клиента.
-const { scheduleDailyBackup } = require('./utils/backupManager');
+const { scheduleDailyBackup, backupDb } = require('./utils/backupManager');
 const config = require('./config'); // для доступа к adminUsers
 // Заменяем @replit/database на локальную реализацию базы данных
 // utils/db.js предоставляет класс Client, совместимый по API, сохраняющий
