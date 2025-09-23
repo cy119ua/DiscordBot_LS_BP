@@ -362,7 +362,7 @@ const handlers = {
         const imgAtt = await battlepass.generateImageAttachment(u, page, level, u.xp || 0);
         if (imgAtt) { embed.setImage(`attachment://${imgAtt.name}`); files = [imgAtt]; }
       } catch(e) { console.error('[BP overlay error]', e?.message || e); }
-      // Отправляем обе группы кнопок: сначала 'топ-20', затем страницы
+      // Только editReply, без replyPriv
       await interaction.editReply({ embeds: [embed], components: [topRow, ...pageButtons], files });
       return;
     }
