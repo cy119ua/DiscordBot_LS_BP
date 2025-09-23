@@ -111,7 +111,7 @@ client.once(Events.ClientReady, async () => {
   // выводиться в консоль.  Бэкапы сохраняются в директорию
   // `data/backups` и не блокируют остальные обработчики.
   try {
-    scheduleDailyBackup();
+    setInterval(backupDb, 24 * 60 * 60 * 1000); // 24 часа
   } catch (e) {
     console.error('[index] Failed to schedule daily backups:', e);
   }
@@ -119,6 +119,18 @@ client.once(Events.ClientReady, async () => {
 
 // Обработка интеракций: slash + кнопки
 client.on(Events.InteractionCreate, async (interaction) => {
+  // Кнопка "топ-20" — показать топ 20 игроков по XP
+  if (interaction.isButton() && interaction.customId === 'top_20_xp') {
+    const db = global.db;
+    // Получаем всех пользователей
+    const users = Object.values(await db.all())
+      .filter(u => u.id && typeof u.xp === 'number')
+      .sort((a, b) => b.xp - a.xp)
+      .slice(0, 20);
+    let text = users.map((u, i) => `${i+1}. <@${u.id}> — ${u.xp} XP`).join('\n');
+    await interaction.reply({ content: `🏆 Топ 20 игроков по XP:\n${text}`, ephemeral: true });
+    return;
+  }
   try {
     // Обработка выпадающих списков (StringSelectMenu) для пользовательских команд
         if (interaction.isStringSelectMenu()) {

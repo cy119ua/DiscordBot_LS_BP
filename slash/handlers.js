@@ -51,6 +51,16 @@ async function fetchTagSafe(client, userId) {
 }
 
 const handlers = {
+  top20: {
+    adminOnly: false,
+    async run(interaction) {
+      const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('top_20_xp').setLabel('топ-20').setStyle(ButtonStyle.Primary)
+      );
+      await interaction.reply({ content: 'Нажмите кнопку, чтобы увидеть топ-20 игроков по XP:', components: [row], ephemeral: true });
+    }
+  },
   // ---------- USER ----------
   code: {
     async run(interaction) {
@@ -340,13 +350,19 @@ const handlers = {
         cardPacks: u.cardPacks || 0,
         isPremium: !!u.premium
       });
-      const components = battlepass.makePageButtons(page);
+      const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+      const pageButtons = battlepass.makePageButtons(page);
+      // Кнопка 'топ-20'
+      const topRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('top_20_xp').setLabel('топ-20').setStyle(ButtonStyle.Primary)
+      );
       let files;
       try {
         const imgAtt = await battlepass.generateImageAttachment(u, page, level, u.xp || 0);
         if (imgAtt) { embed.setImage(`attachment://${imgAtt.name}`); files = [imgAtt]; }
       } catch(e) { console.error('[BP overlay error]', e?.message || e); }
-      return replyPriv(interaction, { embeds: [embed], components, files });
+      // Отправляем обе группы кнопок: сначала 'топ-20', затем страницы
+      return replyPriv(interaction, { embeds: [embed], components: [topRow, ...pageButtons], files });
     }
   },
 
