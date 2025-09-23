@@ -122,8 +122,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
   // Кнопка "топ-20" — показать топ 20 игроков по XP
   if (interaction.isButton() && interaction.customId === 'top_20_xp') {
     const db = global.db;
-    // Получаем всех пользователей
-    const users = Object.values(await db.all())
+    // Получаем всех пользователей через list('user_')
+    const usersObj = await db.list('user_');
+    const users = Object.values(usersObj)
       .filter(u => u.id && typeof u.xp === 'number')
       .sort((a, b) => b.xp - a.xp)
       .slice(0, 20);
