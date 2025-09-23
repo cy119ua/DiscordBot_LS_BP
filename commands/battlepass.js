@@ -76,12 +76,13 @@ function makeEmbed({ user, page, level, xp, invites = 0, doubleTokens = 0, raffl
   return embed;
 }
 
-async function onButton(interaction) {
+async function onButton(interaction, client) {
   if (!interaction.isButton()) return;
   const m = interaction.customId.match(/^bp_page_(\d{1,2})$/);
   if (!m) return;
   const page = clampPage(parseInt(m[1],10));
 
+  // Получаем пользователя через client, если нужно
   const u = await getUser(interaction.user.id);
   const level = calculateLevel(u.xp || 0);
 
