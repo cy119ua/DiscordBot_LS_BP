@@ -96,7 +96,12 @@ async function onButton(interaction) {
     cardPacks: u.cardPacks || 0,
     isPremium: !!u.premium
   });
-  const components = makePageButtons(page);
+  // Добавляем кнопку 'топ-20' к компонентам
+  const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
+  const topRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('top_20_xp').setLabel('топ-20').setStyle(ButtonStyle.Primary)
+  );
+  const components = [topRow, ...makePageButtons(page)];
 
   let files;
   try {
