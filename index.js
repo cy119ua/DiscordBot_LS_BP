@@ -107,11 +107,9 @@ client.once(Events.ClientReady, async () => {
    * а реальная проверка доступа выполняется в isWhitelisted().
    */
 
-  // Запускаем ежедневное создание бэкапов.  Отчёты об ошибках будут
-  // выводиться в консоль.  Бэкапы сохраняются в директорию
-  // `data/backups` и не блокируют остальные обработчики.
+  // Запускаем ежедневное создание бэкапов через scheduleDailyBackup.
   try {
-    setInterval(backupDb, 24 * 60 * 60 * 1000); // 24 часа
+    scheduleDailyBackup();
   } catch (e) {
     console.error('[index] Failed to schedule daily backups:', e);
   }
