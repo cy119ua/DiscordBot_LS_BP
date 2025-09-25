@@ -128,7 +128,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       .filter(u => u.id && typeof u.xp === 'number')
       .sort((a, b) => b.xp - a.xp)
       .slice(0, 20);
-    let text = users.map((u, i) => `${i+1}. <@${u.id}> — ${u.xp} XP`).join('\n');
+    let text = users.map((u, i) => {
+      const star = u.premium ? ' ⭐' : '';
+      return `${i+1}. <@${u.id}>${star} — ${u.xp} XP`;
+    }).join('\n');
     await interaction.reply({ content: `🏆 Топ 20 игроков по XP:\n${text}`, ephemeral: true });
     return;
   }
