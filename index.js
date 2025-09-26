@@ -120,6 +120,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   // Кнопка "топ-20" — показать топ 20 игроков по XP
   if (interaction.isButton() && interaction.customId === 'top_20_xp') {
     const db = global.db;
+    const { calculateLevel } = require('./database/userManager');
     // Получаем всех пользователей через list('user_')
     const usersObj = await db.list('user_');
     const users = Object.values(usersObj)
@@ -128,7 +129,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       .slice(0, 20);
     let text = users.map((u, i) => {
       const star = u.premium ? '⭐ ' : '';
-      return `${i+1}. ${star}<@${u.id}> — ${u.xp} XP`;
+      const lvl = calculateLevel(u.xp || 0);
+      return `${i+1}. ${star}<@${u.id}> — ${u.xp} XP (уровень ${lvl})`;
     }).join('\n');
     try {
       await interaction.reply({ content: `🏆 Топ 20 игроков по XP:\n${text}`, ephemeral: true });

@@ -78,6 +78,33 @@ function makeEmbed({ user, page, level, xp, invites = 0, doubleTokens = 0, raffl
 
 async function onButton(interaction, client) {
   if (!interaction.isButton()) return;
+  // Обработка кнопок Боевого пропуска
+  // Кнопки: страницы, топ-20, predict
+  if (interaction.customId === 'predict_history') {
+    // Кнопка истории прогнозов
+    const { EmbedBuilder } = require('discord.js');
+    const { getPredictionsForUser } = require('../utils/predictionManager');
+    const userId = interaction.user.id;
+    const predictions = getPredictionsForUser(userId);
+    if (!predictions || predictions.length === 0) {
+      return await interaction.reply({ content: '🕑 У вас нет истории прогнозов.', ephemeral: true });
+    }
+    // Формируем список всех прогнозов пользователя за всё время
+    const lines = predictions.map((p) => {
+      const date = new Date(p.ts).toLocaleString();
+      let outcome = p.prediction;
+      if (outcome === 'team1') outcome = 'победа первой';
+      else if (outcome === 'team2') outcome = 'победа второй';
+      else if (outcome === 'draw') outcome = 'ничья';
+      return `🟨 [${date}] Матч: **${p.matchKey}** — прогноз: ${outcome}`;
+    });
+    const embed = new EmbedBuilder()
+      .setColor(0xf5c518)
+      .setTitle('История прогнозов — ваш профиль')
+      .setDescription(lines.join('\n'));
+    return await interaction.reply({ embeds: [embed], ephemeral: true });
+  }
+
   const m = interaction.customId.match(/^bp_page_(\d{1,2})$/);
   if (!m) return;
   const page = clampPage(parseInt(m[1],10));
@@ -97,10 +124,11 @@ async function onButton(interaction, client) {
     cardPacks: u.cardPacks || 0,
     isPremium: !!u.premium
   });
-  // Добавляем кнопку 'топ-20' к компонентам
+  // Добавляем кнопки 'топ-20' и 'predict' к компонентам
   const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
   const topRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('top_20_xp').setLabel('топ-20').setStyle(ButtonStyle.Primary)
+    new ButtonBuilder().setCustomId('top_20_xp').setLabel('топ-20').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('predict_history').setLabel('predict').setStyle(ButtonStyle.Success)
   );
   const components = [topRow, ...makePageButtons(page)];
 

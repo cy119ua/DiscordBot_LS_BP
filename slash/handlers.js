@@ -51,6 +51,81 @@ async function fetchTagSafe(client, userId) {
 }
 
 const handlers = {
+  infop: {
+    adminOnly: false,
+    async run(interaction) {
+      const { EmbedBuilder } = require('discord.js');
+      const { getPredictionsForUser } = require('../utils/predictionManager');
+      const db = global.db;
+      let entries = {};
+      try {
+        if (db?.list) entries = await db.list('user_');
+      } catch (e) {
+        console.error('[infop] list error:', e);
+      }
+      const userIds = Object.keys(entries || {});
+      const resultBlocks = [];
+      for (const key of userIds) {
+        const udata = entries[key];
+        const uid = udata.id || String(key).replace(/^user_/, '');
+        const predictions = getPredictionsForUser(uid);
+        if (!predictions || predictions.length === 0) continue;
+        const tag = udata.tag || `<@${uid}>`;
+        // Загружаем историю результатов команд
+        const teamResults = (() => {
+          try {
+            const { readJSON } = require('../utils/storage');
+            const hist = readJSON(require('path').join(__dirname, '..', 'data', 'history_teams.json'), { events: [] });
+            return Array.isArray(hist.events) ? hist.events.filter(e => e.type === 'result') : [];
+          } catch { return []; }
+        })();
+
+        // Элегантная функция определения исхода матча и результата прогноза
+        function getMatchOutcome(teamA, teamB) {
+          const resA = teamResults.find(e => e.name === teamA);
+          const resB = teamResults.find(e => e.name === teamB);
+          if (!resA || !resB) return { outcome: null, text: '— результат: неизвестен', code: null };
+          if (resA.result === 'draw' && resB.result === 'draw') return { outcome: 'draw', text: '— результат: ничья', code: 'draw' };
+          if (resA.result === 'win' && resB.result === 'loss') return { outcome: 'team1', text: `— результат: победа ${teamA}`, code: 'team1' };
+          if (resA.result === 'loss' && resB.result === 'win') return { outcome: 'team2', text: `— результат: победа ${teamB}`, code: 'team2' };
+          return { outcome: null, text: '— результат: неизвестен', code: null };
+        }
+
+        const lines = predictions.map((p) => {
+          const date = new Date(p.ts).toLocaleString();
+          const [teamA, teamB] = String(p.matchKey).split('_');
+          let outcomeText = '';
+          if (p.prediction === 'team1') outcomeText = `победа ${teamA}`;
+          else if (p.prediction === 'team2') outcomeText = `победа ${teamB}`;
+          else if (p.prediction === 'draw') outcomeText = 'ничья';
+
+          const matchRes = getMatchOutcome(teamA, teamB);
+          let resultText = matchRes.text;
+          if (matchRes.code) {
+            resultText += (p.prediction === matchRes.code) ? ' (УГАДАНО)' : ' (НЕ угадано)';
+          }
+          return `🟨 [${date}] Матч: **${teamA} vs ${teamB}** — прогноз: ${outcomeText} ${resultText}`;
+        });
+        resultBlocks.push({
+          name: `${tag} (${uid})`,
+          value: lines.join('\n')
+        });
+      }
+      if (resultBlocks.length === 0) {
+        return interaction.reply({ content: 'Нет пользователей с историей предсказаний.', ephemeral: true });
+      }
+      // Если слишком много пользователей, разбиваем на несколько эмбедов
+      const embeds = [];
+      for (let i = 0; i < resultBlocks.length; i += 5) {
+        const emb = new EmbedBuilder()
+          .setColor(0xf5c518)
+          .setTitle('История предсказаний пользователей')
+          .addFields(resultBlocks.slice(i, i + 5));
+        embeds.push(emb);
+      }
+      return interaction.reply({ embeds, ephemeral: false });
+    }
+  },
   top20: {
     adminOnly: false,
     async run(interaction) {
@@ -1297,6 +1372,7 @@ module.exports = {
   usedd: { run: handlers.usedd.run },
   predict: { run: handlers.predict.run },
   bp: { run: handlers.bp.run, adminOnly: false },
+  infop: { run: handlers.infop.run, adminOnly: false },
 
   bpstat: { run: handlers.bpstat.run, adminOnly: true },
   setcode: { run: handlers.setcode.run, adminOnly: true },
