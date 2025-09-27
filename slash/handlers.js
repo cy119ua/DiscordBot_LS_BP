@@ -55,42 +55,37 @@ const handlers = {
     adminOnly: false,
     async run(interaction) {
       const { EmbedBuilder } = require('discord.js');
-      const { getPredictionsForUser } = require('../utils/predictionManager');
-      const db = global.db;
-      let entries = {};
-      try {
-        if (db?.list) entries = await db.list('user_');
-      } catch (e) {
-        console.error('[infop] list error:', e);
+      const { readJSON } = require('../utils/storage');
+      // Читаем predictions.json напрямую
+      const predsData = readJSON(require('path').join(__dirname, '..', 'data', 'predictions.json'), { predictions: [] });
+      const allPreds = Array.isArray(predsData.predictions) ? predsData.predictions : [];
+      // Группируем по userId
+      const userMap = {};
+      for (const p of allPreds) {
+        if (!userMap[p.userId]) userMap[p.userId] = [];
+        userMap[p.userId].push(p);
       }
-      const userIds = Object.keys(entries || {});
       const resultBlocks = [];
-      for (const key of userIds) {
-        const udata = entries[key];
-        const uid = udata.id || String(key).replace(/^user_/, '');
-        const predictions = getPredictionsForUser(uid);
+      // Загружаем историю результатов команд
+      const teamResults = (() => {
+        try {
+          const hist = readJSON(require('path').join(__dirname, '..', 'data', 'history_teams.json'), { events: [] });
+          return Array.isArray(hist.events) ? hist.events.filter(e => e.type === 'result') : [];
+        } catch { return []; }
+      })();
+      function getMatchOutcome(teamA, teamB) {
+        const resA = teamResults.find(e => e.name === teamA);
+        const resB = teamResults.find(e => e.name === teamB);
+        if (!resA || !resB) return { outcome: null, text: '— результат: неизвестен', code: null };
+        if (resA.result === 'draw' && resB.result === 'draw') return { outcome: 'draw', text: '— результат: ничья', code: 'draw' };
+        if (resA.result === 'win' && resB.result === 'loss') return { outcome: 'team1', text: `— результат: победа ${teamA}`, code: 'team1' };
+        if (resA.result === 'loss' && resB.result === 'win') return { outcome: 'team2', text: `— результат: победа ${teamB}`, code: 'team2' };
+        return { outcome: null, text: '— результат: неизвестен', code: null };
+      }
+      for (const uid of Object.keys(userMap)) {
+        const predictions = userMap[uid];
         if (!predictions || predictions.length === 0) continue;
-        const tag = udata.tag || `<@${uid}>`;
-        // Загружаем историю результатов команд
-        const teamResults = (() => {
-          try {
-            const { readJSON } = require('../utils/storage');
-            const hist = readJSON(require('path').join(__dirname, '..', 'data', 'history_teams.json'), { events: [] });
-            return Array.isArray(hist.events) ? hist.events.filter(e => e.type === 'result') : [];
-          } catch { return []; }
-        })();
-
-        // Элегантная функция определения исхода матча и результата прогноза
-        function getMatchOutcome(teamA, teamB) {
-          const resA = teamResults.find(e => e.name === teamA);
-          const resB = teamResults.find(e => e.name === teamB);
-          if (!resA || !resB) return { outcome: null, text: '— результат: неизвестен', code: null };
-          if (resA.result === 'draw' && resB.result === 'draw') return { outcome: 'draw', text: '— результат: ничья', code: 'draw' };
-          if (resA.result === 'win' && resB.result === 'loss') return { outcome: 'team1', text: `— результат: победа ${teamA}`, code: 'team1' };
-          if (resA.result === 'loss' && resB.result === 'win') return { outcome: 'team2', text: `— результат: победа ${teamB}`, code: 'team2' };
-          return { outcome: null, text: '— результат: неизвестен', code: null };
-        }
-
+        const tag = `<@${uid}>`;
         const lines = predictions.map((p) => {
           const date = new Date(p.ts).toLocaleString();
           const [teamA, teamB] = String(p.matchKey).split('_');
@@ -98,7 +93,6 @@ const handlers = {
           if (p.prediction === 'team1') outcomeText = `победа ${teamA}`;
           else if (p.prediction === 'team2') outcomeText = `победа ${teamB}`;
           else if (p.prediction === 'draw') outcomeText = 'ничья';
-
           const matchRes = getMatchOutcome(teamA, teamB);
           let resultText = matchRes.text;
           if (matchRes.code) {
