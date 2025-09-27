@@ -130,7 +130,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     let text = users.map((u, i) => {
       const star = u.premium ? '⭐ ' : '';
       const lvl = calculateLevel(u.xp || 0);
-      return `${i+1}. ${star}<@${u.id}> — ${u.xp} XP, уровень ${lvl}`;
+      return `${i+1}. ${star}<@${u.id}> — ${u.xp} XP — уровень ${lvl}`;
     }).join('\n');
     try {
       await interaction.reply({ content: `🏆 Топ 20 игроков по XP:\n${text}`, ephemeral: true });
