@@ -135,7 +135,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return `${String(i+1).padEnd(2)} | ${String(lvl).padEnd(7)} | ${star}<@${u.id}> | ${u.xp}`;
     }).join('\n');
     try {
-      await interaction.reply({ content: `🏆 Топ 20 игроков по XP:\n${text}`, ephemeral: true });
+      await interaction.reply({ content: `🏆 Топ 20 игроков по XP:\n\`\`\`\n${text}\n\`\`\``, ephemeral: true });
     } catch (e) {
       const code = e?.code || e?.rawError?.code;
       if (code === 10062) return; // Unknown interaction — игнорируем
