@@ -127,15 +127,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
       .filter(u => u.id && typeof u.xp === 'number')
       .sort((a, b) => b.xp - a.xp)
       .slice(0, 20);
-    let text = '№ | Уровень | Игрок | XP\n';
-    text += '-----------------------------\n';
-    text += users.map((u, i) => {
+    let text = users.map((u, i) => {
       const star = u.premium ? '⭐ ' : '';
       const lvl = calculateLevel(u.xp || 0);
-      return `${String(i+1).padEnd(2)} | ${String(lvl).padEnd(7)} | ${star}<@${u.id}> | ${u.xp}`;
+      return `${i+1}. ${star}<@${u.id}> — ${u.xp} XP, уровень ${lvl}`;
     }).join('\n');
     try {
-      await interaction.reply({ content: `🏆 Топ 20 игроков по XP:\n\`\`\`\n${text}\n\`\`\``, ephemeral: true });
+      await interaction.reply({ content: `🏆 Топ 20 игроков по XP:\n${text}`, ephemeral: true });
     } catch (e) {
       const code = e?.code || e?.rawError?.code;
       if (code === 10062) return; // Unknown interaction — игнорируем
