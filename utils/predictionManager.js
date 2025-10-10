@@ -28,21 +28,10 @@ function addPrediction(userId, matchKey, prediction) {
   if (!userId || !matchKey || !prediction) return false;
   const preds = loadPredictions();
   const now = Date.now();
-  let updated = false;
-  for (const p of preds) {
-    if (p.userId === userId && p.matchKey === matchKey) {
-      p.prediction = prediction;
-      p.ts = now;
-      if (arguments.length > 3) p.ddWindowId = arguments[3];
-      updated = true;
-      break;
-    }
-  }
-  if (!updated) {
-    const predObj = { userId, matchKey, prediction, ts: now };
-    if (arguments.length > 3) predObj.ddWindowId = arguments[3];
-    preds.push(predObj);
-  }
+  // Добавляем новую запись всегда, чтобы история сохранялась
+  const predObj = { userId, matchKey, prediction, ts: now };
+  if (arguments.length > 3) predObj.ddWindowId = arguments[3];
+  preds.push(predObj);
   savePredictions(preds);
   return true;
 }

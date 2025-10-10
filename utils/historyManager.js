@@ -27,6 +27,7 @@ function saveTeamHistory(events) {
  */
 function addBetHistory(event) {
   const events = loadBetHistory();
+  // Добавляем новую запись, не перезаписывая старые
   events.push({ ...event, ts: Date.now() });
   saveBetHistory(events);
 }

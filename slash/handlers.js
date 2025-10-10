@@ -56,9 +56,16 @@ const handlers = {
     async run(interaction) {
       const { EmbedBuilder } = require('discord.js');
       const { readJSON } = require('../utils/storage');
-      // Читаем predictions.json напрямую
-      const predsData = readJSON(require('path').join(__dirname, '..', 'data', 'predictions.json'), { predictions: [] });
+      let predsData;
+      try {
+        predsData = readJSON(require('path').join(__dirname, '..', 'data', 'predictions.json'), { predictions: [] });
+      } catch (e) {
+        return interaction.reply({ content: 'Ошибка чтения истории предсказаний.', ephemeral: true });
+      }
       const allPreds = Array.isArray(predsData.predictions) ? predsData.predictions : [];
+      if (!allPreds || allPreds.length === 0) {
+        return interaction.reply({ content: 'Нет пользователей с историей предсказаний.', ephemeral: true });
+      }
       // Группируем по userId
       const userMap = {};
       for (const p of allPreds) {
@@ -104,9 +111,6 @@ const handlers = {
           name: `${tag} (${uid})`,
           value: lines.join('\n')
         });
-      }
-      if (resultBlocks.length === 0) {
-        return interaction.reply({ content: 'Нет пользователей с историей предсказаний.', ephemeral: true });
       }
       // Если слишком много пользователей, разбиваем на несколько эмбедов
       const embeds = [];
