@@ -1461,6 +1461,61 @@ const handlers = {
     }
   },
 
+  ddcupresult: {
+    adminOnly: true,
+    async run(interaction) {
+      try {
+        const team1 = interaction.options.getString('team1', true).trim();
+        const team2 = interaction.options.getString('team2', true).trim();
+        const result = interaction.options.getString('result', true); // team1 | team2 | draw
+        const { getSettings } = require('../database/settingsManager');
+        const settings = await getSettings(interaction.guild.id);
+        if (!settings.cupEnabled) return replyPriv(interaction, { content: '❌ CUP сейчас закрыт.' });
+        const cupTeams = Array.isArray(settings.cupTeams) ? settings.cupTeams : [];
+        if (!cupTeams.includes(team1) || !cupTeams.includes(team2)) return replyPriv(interaction, { content: '❌ Одна или обе команды не в списке CUP. Установите команды через /ddcupsetteams.' });
+        if (team1 === team2) return replyPriv(interaction, { content: '❌ Нельзя указать одинаковые команды.' });
+
+        const { getCupPredictionsForMatch, clearCupPredictionsForMatch } = require('../utils/cupManager');
+        const { addXP } = require('../database/userManager');
+        const { checkLevelMilestone } = require('../utils/xpUtils');
+        const { readJSON } = require('../utils/storage');
+
+        // Формируем matchKey в том же виде, что и при ставке (sorted by name)
+        const sorted = [team1, team2].sort((a, b) => a.localeCompare(b));
+        const matchKey = `${sorted[0]}_${sorted[1]}`;
+
+        // Определяем фактический исход относительно sorted
+        let actualOutcome;
+        if (result === 'draw') actualOutcome = 'draw';
+        else if (result === 'team1') actualOutcome = (team1 === sorted[0]) ? 'team1' : 'team2';
+        else if (result === 'team2') actualOutcome = (team2 === sorted[0]) ? 'team1' : 'team2';
+
+        const preds = getCupPredictionsForMatch(interaction.guild.id, matchKey);
+        let awarded = 0;
+        const CUP_XP = { 1: 100, 2: 120, 3: 150 };
+        const roundId = Number(settings.cupRound || 0);
+        const xpForCorrect = CUP_XP[roundId] || 100;
+        for (const pr of preds) {
+          if (pr.prediction === actualOutcome) {
+            const res = await addXP(pr.userId, xpForCorrect, 'cup');
+            awarded += res.xpGained || 0;
+            const tag = `<@${pr.userId}>`;
+            await checkLevelMilestone(res.oldLevel, res.newLevel, { id: pr.userId, tag }, interaction.guild);
+            // Логирование индивидуальной выплаты
+            await logAction('cupPayout', interaction.guild, { user: { id: pr.userId, tag }, match: matchKey, xp: res.xpGained, round: roundId });
+          }
+        }
+        // Очистим прогнозы для матча
+        clearCupPredictionsForMatch(interaction.guild.id, matchKey);
+        await logAction('ddcupResult', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, match: matchKey, result, awarded, round: roundId });
+        return replyPriv(interaction, { content: `✅ Результат зафиксирован для **${sorted[0]} vs ${sorted[1]}**. Начислено XP суммарно: ${awarded}.` });
+      } catch (e) {
+        console.error('[ddcupresult] error', e);
+        return replyPriv(interaction, { content: '❌ Ошибка при фиксации результата CUP.' });
+      }
+    }
+  },
+
   bethistory: {
     adminOnly: true,
     async run(interaction) {
@@ -1558,6 +1613,7 @@ module.exports = {
   teamchange: { run: handlers.teamchange.run, adminOnly: true },
   teamdelete: { run: handlers.teamdelete.run, adminOnly: true },
   teamresult: { run: handlers.teamresult.run, adminOnly: true },
+  ddcupresult: { run: handlers.ddcupresult.run, adminOnly: true },
   bethistory: { run: handlers.bethistory.run, adminOnly: true },
   teamhistory:{ run: handlers.teamhistory.run, adminOnly: true }
   ,

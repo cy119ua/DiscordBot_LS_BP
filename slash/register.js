@@ -248,6 +248,25 @@ const adminOnlyCommands = [
     ]
   },
   {
+    name: 'ddcupresult',
+    description: 'Зафиксировать результат матча CUP (админ)',
+    options: [
+      { name: 'team1', description: 'Команда #1 (из CUP)', type: 3, required: true },
+      { name: 'team2', description: 'Команда #2 (из CUP)', type: 3, required: true },
+      {
+        name: 'result',
+        description: 'Результат',
+        type: 3,
+        required: true,
+        choices: [
+          { name: 'победа первой команды', value: 'team1' },
+          { name: 'победа второй команды', value: 'team2' },
+          { name: 'ничья', value: 'draw' }
+        ]
+      }
+    ]
+  },
+  {
     name: 'bethistory',
     description: 'История ставок участника',
      
