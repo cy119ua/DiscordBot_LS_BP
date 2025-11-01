@@ -405,6 +405,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             return;
           }
           const { addCupPrediction, getCupPredictionsForUser } = require('./utils/cupManager');
+          const { logAction } = require('./utils/logger');
           const round = settings.cupRound || 0;
           // Проверяем, есть ли уже прогноз этого пользователя в раунде
           const userPreds = getCupPredictionsForUser(interaction.guild.id, userId) || [];
