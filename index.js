@@ -462,6 +462,19 @@ client.on(Events.InteractionCreate, async (interaction) => {
           const names = Object.keys(teams).slice(0, 25);
           return interaction.respond(names.map((n) => ({ name: n, value: n })));
         }
+        // Autocomplete for ddcupresult team1/team2 — берем установленные cupTeams из настроек
+        if (optionName === 'team1' || optionName === 'team2') {
+          try {
+            const { getSettings } = require('./database/settingsManager');
+            const settings = await getSettings(interaction.guild.id);
+            const cupTeams = Array.isArray(settings.cupTeams) ? settings.cupTeams : [];
+            const out = cupTeams.slice(0, 25).map((t) => ({ name: t, value: t }));
+            return interaction.respond(out);
+          } catch (e) {
+            console.error('autocomplete ddcupresult error:', e);
+            return interaction.respond([]);
+          }
+        }
         // Автодополнение для выбора участника команды (параметр 'old' в /teamchange).
         if (optionName === 'old') {
           try {

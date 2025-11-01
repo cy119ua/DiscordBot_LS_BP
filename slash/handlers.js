@@ -961,6 +961,13 @@ const handlers = {
         if (new Set(teams.map(s => s.toLowerCase())).size !== 4) {
           return replyPriv(interaction, { content: '❌ Ошибка: команды должны быть уникальными.' });
         }
+        // Не перезаписываем существующий список команд: если команды уже установлены,
+        // просим админа сначала очистить их (ddcupstop) или вручную удалить.
+        const { getSettings } = require('../database/settingsManager');
+        const settings = await getSettings(interaction.guild.id);
+        if (Array.isArray(settings.cupTeams) && settings.cupTeams.length > 0) {
+          return replyPriv(interaction, { content: `❌ Ошибка: команды для CUP уже установлены: ${settings.cupTeams.map(t => `**${t}**`).join(', ')}. Сначала сбросьте их командой /ddcupstop.` });
+        }
         await patchSettings(interaction.guild.id, { cupTeams: teams });
         await logAction('ddcupSetTeams', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, teams });
         return replyPriv(interaction, { content: `✅ Установлены команды для CUP: ${teams.map(t => `**${t}**`).join(', ')}.` });
@@ -1507,6 +1514,20 @@ const handlers = {
         }
         // Очистим прогнозы для матча
         clearCupPredictionsForMatch(interaction.guild.id, matchKey);
+        // Удаляем обработанные команды из списка cupTeams
+        try {
+          const currentTeams = Array.isArray(settings.cupTeams) ? settings.cupTeams.slice() : [];
+          const remaining = currentTeams.filter(t => t !== sorted[0] && t !== sorted[1]);
+          // Если осталось меньше 2 команд, закрываем CUP автоматически
+          if (remaining.length < 2) {
+            await patchSettings(interaction.guild.id, { cupTeams: remaining, cupEnabled: false, cupRound: 0 });
+          } else {
+            await patchSettings(interaction.guild.id, { cupTeams: remaining });
+          }
+        } catch (e) {
+          console.error('[ddcupresult] failed to update cupTeams', e);
+        }
+
         await logAction('ddcupResult', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, match: matchKey, result, awarded, round: roundId });
         return replyPriv(interaction, { content: `✅ Результат зафиксирован для **${sorted[0]} vs ${sorted[1]}**. Начислено XP суммарно: ${awarded}.` });
       } catch (e) {

@@ -251,8 +251,8 @@ const adminOnlyCommands = [
     name: 'ddcupresult',
     description: 'Зафиксировать результат матча CUP (админ)',
     options: [
-      { name: 'team1', description: 'Команда #1 (из CUP)', type: 3, required: true },
-      { name: 'team2', description: 'Команда #2 (из CUP)', type: 3, required: true },
+      { name: 'team1', description: 'Команда #1 (из CUP)', type: 3, required: true, autocomplete: true },
+      { name: 'team2', description: 'Команда #2 (из CUP)', type: 3, required: true, autocomplete: true },
       {
         name: 'result',
         description: 'Результат',
