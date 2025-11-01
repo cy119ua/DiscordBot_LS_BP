@@ -7,6 +7,11 @@ async function getSettings(guildId){
   return {
     logChannelId: s.logChannelId || null,
     ddEnabled: !!s.ddEnabled,
+    // Состояние для специальных CUP-раундов (ddcup)
+    cupEnabled: !!s.cupEnabled,
+    cupRound: Number.isInteger(s.cupRound) ? s.cupRound : 0,
+    // Список команд для текущего CUP (массив строк)
+    cupTeams: Array.isArray(s.cupTeams) ? s.cupTeams : [],
     // ВАЖНО: добавили возврат текущего ID окна Double-Down
     ddWindowId: Number.isInteger(s.ddWindowId) ? s.ddWindowId : 0,
     whitelistUsers: Array.isArray(s.whitelistUsers) ? s.whitelistUsers : [],

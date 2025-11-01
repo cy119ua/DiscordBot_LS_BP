@@ -72,7 +72,9 @@ function clearAllPredictions() {
   // Вместо удаления истории просто сбрасываем ddWindowId у всех предсказаний
   const preds = loadPredictions();
   for (const p of preds) {
-    delete p.ddWindowId;
+    if (p.hasOwnProperty('ddWindowId')) {
+      delete p.ddWindowId;
+    }
   }
   savePredictions(preds);
 }

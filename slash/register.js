@@ -44,6 +44,12 @@ const publicCommands = [
   }
   ,
   {
+    name: 'cup',
+    description: 'Сделать прогноз в CUP (специальные 4 команды, когда окно открыто)',
+    options: []
+  }
+  ,
+  {
     name: 'infop',
     description: 'Показать историю предсказаний всех пользователей'
   }
@@ -124,6 +130,20 @@ const adminOnlyCommands = [
   },
   { name: 'ddstart', description: 'Открыть окно Double-Down',  },
   { name: 'ddstop',  description: 'Закрыть окно Double-Down',  },
+  { name: 'ddcup1', description: 'Открыть окно CUP — раунд 1 (XP за верный прогноз: 100)' },
+  { name: 'ddcup2', description: 'Открыть окно CUP — раунд 2 (XP за верный прогноз: 120)' },
+  { name: 'ddcup3', description: 'Открыть окно CUP — раунд 3 (XP за верный прогноз: 150)' },
+  { name: 'ddcupstop', description: 'Закрыть окно CUP (ddcup)' },
+  {
+    name: 'ddcupsetteams',
+    description: 'Установить 4 команды для текущего CUP (порядок важен)',
+    options: [
+      { name: 'team1', description: 'Команда #1', type: 3, required: true },
+      { name: 'team2', description: 'Команда #2', type: 3, required: true },
+      { name: 'team3', description: 'Команда #3', type: 3, required: true },
+      { name: 'team4', description: 'Команда #4', type: 3, required: true }
+    ]
+  },
   {
     name: 'setlog',
     description: 'Установить лог-канал',

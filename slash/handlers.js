@@ -405,6 +405,45 @@ const handlers = {
     }
   },
 
+  cup: {
+    async run(interaction) {
+      try {
+        const settings = await getSettings(interaction.guild.id);
+        if (!settings.cupEnabled) return replyPriv(interaction, { content: '❌ CUP сейчас недоступен.', ephemeral: true });
+        const round = settings.cupRound || 0;
+        const cupTeams = Array.isArray(settings.cupTeams) ? settings.cupTeams : [];
+        if (!cupTeams || cupTeams.length < 2) return replyPriv(interaction, { content: '❌ Команды для CUP не установлены. Ожидайте администратора.', ephemeral: true });
+
+        // Проверка: пользователь может делать только один прогноз в раунде
+        const { getCupPredictionsForUser, addCupPrediction } = require('../utils/cupManager');
+        const userPreds = getCupPredictionsForUser(interaction.guild.id, interaction.user.id);
+        if (userPreds.find(p => p.roundId === round)) {
+          return replyPriv(interaction, { content: '❌ Вы уже сделали прогноз в этом раунде CUP.', ephemeral: true });
+        }
+
+        // Если нет параметров — интерактивный выбор матча
+        // Формируем все возможные пары из cupTeams
+        const pairs = [];
+        for (let i = 0; i < cupTeams.length; i++) {
+          for (let j = i + 1; j < cupTeams.length; j++) {
+            pairs.push([cupTeams[i], cupTeams[j]]);
+          }
+        }
+        if (!pairs.length) return replyPriv(interaction, { content: '❌ Нет доступных матчей для CUP.', ephemeral: true });
+        const menuOptions = pairs.map(p => ({ label: `${p[0]} vs ${p[1]}`, value: `${p[0]}_${p[1]}` }));
+        const select = new StringSelectMenuBuilder()
+          .setCustomId(`cup_match_select:${interaction.user.id}`)
+          .setPlaceholder('Выберите матч CUP')
+          .addOptions(menuOptions);
+        const row = new ActionRowBuilder().addComponents(select);
+        return replyPriv(interaction, { content: 'Выберите матч для прогноза в CUP:', components: [row] });
+      } catch (e) {
+        console.error('[cup] error', e);
+        return replyPriv(interaction, { content: '❌ Ошибка при обработке команды /cup.' });
+      }
+    }
+  },
+
   bp: {
     adminOnly: false,
     async run(interaction) {
@@ -848,6 +887,90 @@ const handlers = {
     }
   },
 
+  // Открыть CUP-окно для раунда 1/2/3. Награды за правильный прогноз — 100/120/150 XP соответственно.
+  ddcup1: {
+    adminOnly: true,
+    async run(interaction) {
+      try {
+        // Сброс предыдущих cup-прогнозов для этой гильдии
+        const { clearAllCupPredictionsForGuild } = require('../utils/cupManager');
+        clearAllCupPredictionsForGuild(interaction.guild.id);
+        await patchSettings(interaction.guild.id, { cupEnabled: true, cupRound: 1 });
+        await logAction('ddcupWindow', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, enabled: true, round: 1 });
+        return interaction.reply({ content: '✅ CUP раунд 1 открыт (награда за верный прогноз: 100 XP).', ephemeral: true });
+      } catch (e) {
+        console.error('[ddcup1] error', e);
+        return replyPriv(interaction, { content: '❌ Ошибка при открытии CUP раунда 1.' });
+      }
+    }
+  },
+  ddcup2: {
+    adminOnly: true,
+    async run(interaction) {
+      try {
+        const { clearAllCupPredictionsForGuild } = require('../utils/cupManager');
+        clearAllCupPredictionsForGuild(interaction.guild.id);
+        await patchSettings(interaction.guild.id, { cupEnabled: true, cupRound: 2 });
+        await logAction('ddcupWindow', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, enabled: true, round: 2 });
+        return interaction.reply({ content: '✅ CUP раунд 2 открыт (награда за верный прогноз: 120 XP).', ephemeral: true });
+      } catch (e) {
+        console.error('[ddcup2] error', e);
+        return replyPriv(interaction, { content: '❌ Ошибка при открытии CUP раунда 2.' });
+      }
+    }
+  },
+  ddcup3: {
+    adminOnly: true,
+    async run(interaction) {
+      try {
+        const { clearAllCupPredictionsForGuild } = require('../utils/cupManager');
+        clearAllCupPredictionsForGuild(interaction.guild.id);
+        await patchSettings(interaction.guild.id, { cupEnabled: true, cupRound: 3 });
+        await logAction('ddcupWindow', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, enabled: true, round: 3 });
+        return interaction.reply({ content: '✅ CUP раунд 3 открыт (награда за верный прогноз: 150 XP).', ephemeral: true });
+      } catch (e) {
+        console.error('[ddcup3] error', e);
+        return replyPriv(interaction, { content: '❌ Ошибка при открытии CUP раунда 3.' });
+      }
+    }
+  },
+  ddcupstop: {
+    adminOnly: true,
+    async run(interaction) {
+      try {
+        await patchSettings(interaction.guild.id, { cupEnabled: false, cupRound: 0 });
+        await logAction('ddcupWindow', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, enabled: false });
+        return replyPriv(interaction, { content: '🛑 CUP окно закрыто.' });
+      } catch (e) {
+        console.error('[ddcupstop] error', e);
+        return replyPriv(interaction, { content: '❌ Ошибка при закрытии CUP окна.' });
+      }
+    }
+  },
+
+  ddcupsetteams: {
+    adminOnly: true,
+    async run(interaction) {
+      try {
+        const t1 = interaction.options.getString('team1', true).trim();
+        const t2 = interaction.options.getString('team2', true).trim();
+        const t3 = interaction.options.getString('team3', true).trim();
+        const t4 = interaction.options.getString('team4', true).trim();
+        const teams = [t1, t2, t3, t4];
+        // Проверка на уникальность
+        if (new Set(teams.map(s => s.toLowerCase())).size !== 4) {
+          return replyPriv(interaction, { content: '❌ Ошибка: команды должны быть уникальными.' });
+        }
+        await patchSettings(interaction.guild.id, { cupTeams: teams });
+        await logAction('ddcupSetTeams', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, teams });
+        return replyPriv(interaction, { content: `✅ Установлены команды для CUP: ${teams.map(t => `**${t}**`).join(', ')}.` });
+      } catch (e) {
+        console.error('[ddcupsetteams] error', e);
+        return replyPriv(interaction, { content: '❌ Ошибка при установке команд CUP.' });
+      }
+    }
+  },
+
   setlog: {
     adminOnly: true,
     async run(interaction) {
@@ -1194,6 +1317,35 @@ const handlers = {
               }
               // Очищаем прогнозы для матча, чтобы не начислять дважды
               clearPredictionsForMatch(matchKey);
+              // ---- Обработка CUP-прогнозов (если для этой гильдии включён CUP и пары совпадают) ----
+              try {
+                const { getSettings } = require('../database/settingsManager');
+                const settingsCup = await getSettings(interaction.guild.id);
+                if (settingsCup.cupEnabled && Array.isArray(settingsCup.cupTeams) && settingsCup.cupTeams.length >= 2) {
+                  const { getCupPredictionsForMatch, clearCupPredictionsForMatch } = require('../utils/cupManager');
+                  const cupPreds = getCupPredictionsForMatch(interaction.guild.id, matchKey);
+                  if (cupPreds && cupPreds.length > 0) {
+                    // Определяем фактический исход (тот же actualOutcome)
+                    const CUP_XP = { 1: 100, 2: 120, 3: 150 };
+                    const roundId = Number(settingsCup.cupRound || 0);
+                    for (const pr of cupPreds) {
+                      if (pr.prediction === actualOutcome) {
+                        const xpAward = CUP_XP[roundId] || 100;
+                        const resPred = await addXP(pr.userId, xpAward, 'cupPrediction');
+                        const targetTag = await fetchTagSafe(interaction.client, pr.userId);
+                        await checkLevelMilestone(resPred.oldLevel, resPred.newLevel, { id: pr.userId, tag: targetTag }, interaction.guild);
+                        await logAction('cupPredictionPayout', interaction.guild, {
+                          user: { id: pr.userId, tag: targetTag }, match: matchKey, prediction: pr.prediction, xpGained: resPred.xpGained, round: roundId
+                        });
+                      }
+                    }
+                    // Очищаем cup-прогнозы для матча
+                    clearCupPredictionsForMatch(interaction.guild.id, matchKey);
+                  }
+                }
+              } catch (e) {
+                console.error('[teamresult/cupPrediction]', e);
+              }
             }
           }
       } catch (e) {
@@ -1394,6 +1546,12 @@ module.exports = {
 
   ddstart: { run: handlers.ddstart.run, adminOnly: true },
   ddstop:  { run: handlers.ddstop.run,  adminOnly: true },
+  ddcup1:  { run: handlers.ddcup1.run,  adminOnly: true },
+  ddcup2:  { run: handlers.ddcup2.run,  adminOnly: true },
+  ddcup3:  { run: handlers.ddcup3.run,  adminOnly: true },
+  ddcupstop:{ run: handlers.ddcupstop.run, adminOnly: true },
+  ddcupsetteams: { run: handlers.ddcupsetteams.run, adminOnly: true },
+  cup:    { run: handlers.cup.run, adminOnly: false },
   setlog:  { run: handlers.setlog.run,  adminOnly: true },
 
   teamcreate: { run: handlers.teamcreate.run, adminOnly: true },
