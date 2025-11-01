@@ -144,6 +144,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
   try {
     // Обработка выпадающих списков (StringSelectMenu) для пользовательских команд
         if (interaction.isStringSelectMenu()) {
+      // Логирование select-меню для диагностики (показывает customId и пользователя)
+      try { console.log(`[select] customId=${interaction.customId} user=${interaction.user.tag}(${interaction.user.id}) values=${JSON.stringify(interaction.values)}`); } catch {}
       const customId = interaction.customId;
       // Форма customId: usedd_team_select:<userId>:<tokens>
       if (customId.startsWith('usedd_team_select:')) {
@@ -399,27 +401,48 @@ client.on(Events.InteractionCreate, async (interaction) => {
           const { getSettings } = require('./database/settingsManager');
           const settings = await getSettings(interaction.guild.id);
           if (!settings.cupEnabled) {
-            return interaction.update({ content: '❌ CUP сейчас недоступен.', components: [] });
+            try { await interaction.update({ content: '❌ CUP сейчас недоступен.', components: [] }); } catch { await interaction.reply({ content: '❌ CUP сейчас недоступен.', ephemeral: true }); }
+            return;
           }
           const { addCupPrediction, getCupPredictionsForUser } = require('./utils/cupManager');
           const round = settings.cupRound || 0;
           // Проверяем, есть ли уже прогноз этого пользователя в раунде
-          const userPreds = getCupPredictionsForUser(interaction.guild.id, userId);
+          const userPreds = getCupPredictionsForUser(interaction.guild.id, userId) || [];
           if (userPreds.find(p => p.roundId === round)) {
-            return interaction.update({ content: '❌ Вы уже сделали прогноз в этом раунде CUP.', components: [] });
+            try { await interaction.update({ content: '❌ Вы уже сделали прогноз в этом раунде CUP.', components: [] }); } catch { await interaction.reply({ content: '❌ Вы уже сделали прогноз в этом раунде CUP.', ephemeral: true }); }
+            return;
           }
           // Проверяем, не дублирует ли пользователь прогноз на этот матч
           if (userPreds.find(p => p.matchKey === matchKey)) {
-            return interaction.update({ content: '❌ Вы уже сделали прогноз на этот матч в CUP.', components: [] });
+            try { await interaction.update({ content: '❌ Вы уже сделали прогноз на этот матч в CUP.', components: [] }); } catch { await interaction.reply({ content: '❌ Вы уже сделали прогноз на этот матч в CUP.', ephemeral: true }); }
+            return;
           }
-          addCupPrediction(interaction.guild.id, userId, matchKey, resultVal, round);
+          const ok = addCupPrediction(interaction.guild.id, userId, matchKey, resultVal, round);
+          if (!ok) {
+            throw new Error('addCupPrediction returned falsy');
+          }
           await logAction('cupPredictionAdd', interaction.guild, { user: { id: userId, tag: interaction.user.tag }, match: matchKey, prediction: resultVal, round });
           const [team1, team2] = matchKey.split('_');
           const outcomeDesc = resultVal === 'team1' ? `победа ${team1}` : resultVal === 'team2' ? `победа ${team2}` : 'ничья';
-          return interaction.update({ content: `✅ Ваш прогноз в CUP принят: матч **${team1}** vs **${team2}**, исход **${outcomeDesc}**.`, components: [] });
+          try {
+            await interaction.update({ content: `✅ Ваш прогноз в CUP принят: матч **${team1}** vs **${team2}**, исход **${outcomeDesc}**.`, components: [] });
+          } catch (updErr) {
+            // Если update не сработал (например, interaction уже обработан), пробуем reply
+            try { await interaction.reply({ content: `✅ Ваш прогноз в CUP принят: матч **${team1}** vs **${team2}**, исход **${outcomeDesc}**.`, ephemeral: true }); }
+            catch (replyErr) {
+              console.error('cup result select: failed to respond to user', updErr, replyErr);
+            }
+          }
+          return;
         } catch (e) {
-          console.error('cup result select error:', e);
-          return interaction.update({ content: '❌ Ошибка при обработке прогноза CUP.', components: [] });
+          console.error('cup result select error:', e && (e.stack || e));
+          // Попытка корректно ответить пользователю (update → reply)
+          try { await interaction.update({ content: '❌ Ошибка при обработке прогноза CUP. Описание ошибки записано в лог.', components: [] }); }
+          catch (err2) {
+            try { await interaction.reply({ content: '❌ Ошибка при обработке прогноза CUP. Описание ошибки записано в лог.', ephemeral: true }); }
+            catch { /* окончательный silent fail */ }
+          }
+          return;
         }
       }
       // другие select-меню — игнорируем
@@ -493,6 +516,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     // Slash-команды
     if (!interaction.isChatInputCommand()) return;
+
+    // Логируем факт вызова slash-команды
+    try { console.log(`[slash] command=${interaction.commandName} user=${interaction.user.tag}(${interaction.user.id}) guild=${interaction.guild?.id || 'DM'}`); } catch {}
 
     const handler = slashHandlers[interaction.commandName];
     if (!handler) return;
