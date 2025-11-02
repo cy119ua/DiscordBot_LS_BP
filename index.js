@@ -468,7 +468,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
             const { getSettings } = require('./database/settingsManager');
             const settings = await getSettings(interaction.guild.id);
             const cupTeams = Array.isArray(settings.cupTeams) ? settings.cupTeams : [];
-            const out = cupTeams.slice(0, 25).map((t) => ({ name: t, value: t }));
+            const processed = Array.isArray(settings.cupProcessedTeams) ? settings.cupProcessedTeams : [];
+            // Предлагаем только те команды, которые установил админ и которые ещё не обработаны
+            const available = cupTeams.filter(t => !processed.includes(t)).slice(0, 25);
+            const out = available.map((t) => ({ name: t, value: t }));
             return interaction.respond(out);
           } catch (e) {
             console.error('autocomplete ddcupresult error:', e);

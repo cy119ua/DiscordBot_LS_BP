@@ -895,7 +895,7 @@ const handlers = {
         // Сброс предыдущих cup-прогнозов для этой гильдии
         const { clearAllCupPredictionsForGuild } = require('../utils/cupManager');
         clearAllCupPredictionsForGuild(interaction.guild.id);
-        await patchSettings(interaction.guild.id, { cupEnabled: true, cupRound: 1 });
+  await patchSettings(interaction.guild.id, { cupEnabled: true, cupRound: 1, cupResults: [], cupProcessedTeams: [] });
         await logAction('ddcupWindow', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, enabled: true, round: 1 });
         return interaction.reply({ content: '✅ CUP раунд 1 открыт (награда за верный прогноз: 100 XP).', ephemeral: true });
       } catch (e) {
@@ -910,7 +910,7 @@ const handlers = {
       try {
         const { clearAllCupPredictionsForGuild } = require('../utils/cupManager');
         clearAllCupPredictionsForGuild(interaction.guild.id);
-        await patchSettings(interaction.guild.id, { cupEnabled: true, cupRound: 2 });
+  await patchSettings(interaction.guild.id, { cupEnabled: true, cupRound: 2, cupResults: [], cupProcessedTeams: [] });
         await logAction('ddcupWindow', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, enabled: true, round: 2 });
         return interaction.reply({ content: '✅ CUP раунд 2 открыт (награда за верный прогноз: 120 XP).', ephemeral: true });
       } catch (e) {
@@ -925,7 +925,7 @@ const handlers = {
       try {
         const { clearAllCupPredictionsForGuild } = require('../utils/cupManager');
         clearAllCupPredictionsForGuild(interaction.guild.id);
-        await patchSettings(interaction.guild.id, { cupEnabled: true, cupRound: 3 });
+  await patchSettings(interaction.guild.id, { cupEnabled: true, cupRound: 3, cupResults: [], cupProcessedTeams: [] });
         await logAction('ddcupWindow', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, enabled: true, round: 3 });
         return interaction.reply({ content: '✅ CUP раунд 3 открыт (награда за верный прогноз: 150 XP).', ephemeral: true });
       } catch (e) {
@@ -938,8 +938,8 @@ const handlers = {
     adminOnly: true,
     async run(interaction) {
       try {
-        // Закрываем CUP и очищаем список команд и обработанных результатов.
-        await patchSettings(interaction.guild.id, { cupEnabled: false, cupRound: 0, cupTeams: [], cupResults: [] });
+  // Закрываем CUP и очищаем список команд и обработанных результатов.
+  await patchSettings(interaction.guild.id, { cupEnabled: false, cupRound: 0, cupTeams: [], cupResults: [], cupProcessedTeams: [] });
         await logAction('ddcupWindow', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, enabled: false });
         return replyPriv(interaction, { content: '🛑 CUP окно закрыто.' });
       } catch (e) {
@@ -969,7 +969,7 @@ const handlers = {
         if (Array.isArray(settings.cupTeams) && settings.cupTeams.length > 0) {
           return replyPriv(interaction, { content: `❌ Ошибка: команды для CUP уже установлены: ${settings.cupTeams.map(t => `**${t}**`).join(', ')}. Сначала сбросьте их командой /ddcupstop.` });
         }
-        await patchSettings(interaction.guild.id, { cupTeams: teams });
+        await patchSettings(interaction.guild.id, { cupTeams: teams, cupResults: [], cupProcessedTeams: [] });
         await logAction('ddcupSetTeams', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, teams });
         return replyPriv(interaction, { content: `✅ Установлены команды для CUP: ${teams.map(t => `**${t}**`).join(', ')}.` });
       } catch (e) {
@@ -1482,6 +1482,11 @@ const handlers = {
         const cupTeams = Array.isArray(settings.cupTeams) ? settings.cupTeams : [];
         if (!cupTeams.includes(team1) || !cupTeams.includes(team2)) return replyPriv(interaction, { content: '❌ Одна или обе команды не в списке CUP. Установите команды через /ddcupsetteams.' });
         if (team1 === team2) return replyPriv(interaction, { content: '❌ Нельзя указать одинаковые команды.' });
+        // Проверка: не была ли уже у одной из команд выставлена модульная result в этом окне
+        const processedTeams = Array.isArray(settings.cupProcessedTeams) ? settings.cupProcessedTeams : [];
+        if (processedTeams.includes(team1) || processedTeams.includes(team2)) {
+          return replyPriv(interaction, { content: '❌ Одна из указанных команд уже имеет зафиксированный результат в текущем CUP-окне. Сначала закройте окно или проверьте список команд.' });
+        }
 
         const { getCupPredictionsForMatch, clearCupPredictionsForMatch } = require('../utils/cupManager');
         const { addXP } = require('../database/userManager');
@@ -1520,13 +1525,17 @@ const handlers = {
         }
         // Очистим прогнозы для матча
         clearCupPredictionsForMatch(interaction.guild.id, matchKey);
-        // Отметим матч как обработанный, чтобы повторно нельзя было выставить результат
+        // Отметим матч как обработанный и добавим команды в processed list,
+        // чтобы команды, для которых выставлен результат, не могли участвовать в других матчах в том же окне.
         try {
           const cupResultsNew = Array.isArray(settings.cupResults) ? settings.cupResults.slice() : [];
           cupResultsNew.push(matchKey);
-          await patchSettings(interaction.guild.id, { cupResults: cupResultsNew });
+          const proc = Array.isArray(settings.cupProcessedTeams) ? settings.cupProcessedTeams.slice() : [];
+          if (!proc.includes(sorted[0])) proc.push(sorted[0]);
+          if (!proc.includes(sorted[1])) proc.push(sorted[1]);
+          await patchSettings(interaction.guild.id, { cupResults: cupResultsNew, cupProcessedTeams: proc });
         } catch (e) {
-          console.error('[ddcupresult] failed to record cupResults', e);
+          console.error('[ddcupresult] failed to record cupResults/procTeams', e);
         }
         await logAction('ddcupResult', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, match: matchKey, result, awarded, round: roundId });
         return replyPriv(interaction, { content: `✅ Результат зафиксирован для **${sorted[0]} vs ${sorted[1]}**. Начислено XP суммарно: ${awarded}.` });
