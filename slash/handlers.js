@@ -938,7 +938,8 @@ const handlers = {
     adminOnly: true,
     async run(interaction) {
       try {
-        await patchSettings(interaction.guild.id, { cupEnabled: false, cupRound: 0 });
+        // Закрываем CUP и очищаем список команд и обработанных результатов.
+        await patchSettings(interaction.guild.id, { cupEnabled: false, cupRound: 0, cupTeams: [], cupResults: [] });
         await logAction('ddcupWindow', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, enabled: false });
         return replyPriv(interaction, { content: '🛑 CUP окно закрыто.' });
       } catch (e) {
@@ -1502,6 +1503,11 @@ const handlers = {
         const CUP_XP = { 1: 100, 2: 120, 3: 150 };
         const roundId = Number(settings.cupRound || 0);
         const xpForCorrect = CUP_XP[roundId] || 100;
+        // Проверка: не был ли уже зафиксирован результат для этой пары
+        const cupResults = Array.isArray(settings.cupResults) ? settings.cupResults : [];
+        if (cupResults.includes(matchKey)) {
+          return replyPriv(interaction, { content: '❌ Результат для этого матча CUP уже был зафиксирован ранее.' });
+        }
         for (const pr of preds) {
           if (pr.prediction === actualOutcome) {
             const res = await addXP(pr.userId, xpForCorrect, 'cup');
@@ -1514,20 +1520,14 @@ const handlers = {
         }
         // Очистим прогнозы для матча
         clearCupPredictionsForMatch(interaction.guild.id, matchKey);
-        // Удаляем обработанные команды из списка cupTeams
+        // Отметим матч как обработанный, чтобы повторно нельзя было выставить результат
         try {
-          const currentTeams = Array.isArray(settings.cupTeams) ? settings.cupTeams.slice() : [];
-          const remaining = currentTeams.filter(t => t !== sorted[0] && t !== sorted[1]);
-          // Если осталось меньше 2 команд, закрываем CUP автоматически
-          if (remaining.length < 2) {
-            await patchSettings(interaction.guild.id, { cupTeams: remaining, cupEnabled: false, cupRound: 0 });
-          } else {
-            await patchSettings(interaction.guild.id, { cupTeams: remaining });
-          }
+          const cupResultsNew = Array.isArray(settings.cupResults) ? settings.cupResults.slice() : [];
+          cupResultsNew.push(matchKey);
+          await patchSettings(interaction.guild.id, { cupResults: cupResultsNew });
         } catch (e) {
-          console.error('[ddcupresult] failed to update cupTeams', e);
+          console.error('[ddcupresult] failed to record cupResults', e);
         }
-
         await logAction('ddcupResult', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, match: matchKey, result, awarded, round: roundId });
         return replyPriv(interaction, { content: `✅ Результат зафиксирован для **${sorted[0]} vs ${sorted[1]}**. Начислено XP суммарно: ${awarded}.` });
       } catch (e) {

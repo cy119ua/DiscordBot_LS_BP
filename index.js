@@ -548,7 +548,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
      * поддерживается список команд, которые должны быть доступны всем
      * пользователям, даже если в их обработчике указан `adminOnly`.
      */
-    const publiclyAccessibleCommands = ['bp', 'code', 'usedd'];
+  const publiclyAccessibleCommands = ['bp', 'code', 'usedd', 'cup'];
     const requiresAdmin = handler.adminOnly && !publiclyAccessibleCommands.includes(interaction.commandName);
 
     if (requiresAdmin) {
