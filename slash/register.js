@@ -136,12 +136,12 @@ const adminOnlyCommands = [
   { name: 'ddcupstop', description: 'Закрыть окно CUP (ddcup)' },
   {
     name: 'ddcupsetteams',
-    description: 'Установить 4 команды для текущего CUP (порядок важен)',
+    description: 'Установить команды для текущего CUP (2–4 команды, порядок важен)',
     options: [
       { name: 'team1', description: 'Команда #1', type: 3, required: true },
       { name: 'team2', description: 'Команда #2', type: 3, required: true },
-      { name: 'team3', description: 'Команда #3', type: 3, required: true },
-      { name: 'team4', description: 'Команда #4', type: 3, required: true }
+      { name: 'team3', description: 'Команда #3 (опционально)', type: 3, required: false },
+      { name: 'team4', description: 'Команда #4 (опционально)', type: 3, required: false }
     ]
   },
   {

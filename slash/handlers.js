@@ -953,13 +953,16 @@ const handlers = {
     adminOnly: true,
     async run(interaction) {
       try {
-        const t1 = interaction.options.getString('team1', true).trim();
-        const t2 = interaction.options.getString('team2', true).trim();
-        const t3 = interaction.options.getString('team3', true).trim();
-        const t4 = interaction.options.getString('team4', true).trim();
-        const teams = [t1, t2, t3, t4];
+        const t1 = interaction.options.getString('team1', true)?.trim();
+        const t2 = interaction.options.getString('team2', true)?.trim();
+        const t3 = interaction.options.getString('team3', false)?.trim();
+        const t4 = interaction.options.getString('team4', false)?.trim();
+        // Собираем непустые команды (разрешаем 2..4 команд)
+        const teams = [t1, t2, t3, t4].filter(Boolean);
+        if (teams.length < 2) return replyPriv(interaction, { content: '❌ Ошибка: нужно указать как минимум 2 команды.' });
         // Проверка на уникальность
-        if (new Set(teams.map(s => s.toLowerCase())).size !== 4) {
+        const lowered = teams.map(s => (s || '').toLowerCase());
+        if (new Set(lowered).size !== teams.length) {
           return replyPriv(interaction, { content: '❌ Ошибка: команды должны быть уникальными.' });
         }
         // Не перезаписываем существующий список команд: если команды уже установлены,
