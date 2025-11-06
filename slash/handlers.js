@@ -1028,7 +1028,7 @@ const handlers = {
     async run(interaction) {
       try {
   // Закрываем CUP и очищаем список команд и обработанных результатов.
-        await patchSettings(interaction.guild.id, { cupEnabled: false, cupRound: 0, cupTeams: [], cupPairs: [], cupResults: [], cupProcessedTeams: [], cupLocked: false });
+  await patchSettings(interaction.guild.id, { cupEnabled: false, cupRound: 0, cupTeams: [], cupPairs: [], cupRosters: {}, cupResults: [], cupProcessedTeams: [], cupLocked: false });
         await logAction('ddcupWindow', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, enabled: false });
         return replyPriv(interaction, { content: '🛑 CUP окно закрыто.' });
       } catch (e) {
