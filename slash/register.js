@@ -135,6 +135,22 @@ const adminOnlyCommands = [
   { name: 'ddcup3', description: 'Открыть окно CUP — раунд 3 (XP за верный прогноз: 150)' },
   { name: 'ddcupstop', description: 'Закрыть окно CUP (ddcup)' },
   {
+    name: 'ddcuplock',
+    description: 'Блокировать или разблокировать прогнозы в текущем CUP (не удаляет команды)',
+    options: [
+      {
+        name: 'action',
+        description: 'Действие: lock — запретить прогнозы, unlock — разрешить',
+        type: 3,
+        required: true,
+        choices: [
+          { name: 'lock', value: 'lock' },
+          { name: 'unlock', value: 'unlock' }
+        ]
+      }
+    ]
+  },
+  {
     name: 'ddcupsetteams',
     description: 'Установить команды для текущего CUP (2–4 команды, порядок важен)',
     options: [
