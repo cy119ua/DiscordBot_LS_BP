@@ -352,7 +352,9 @@ const adminOnlyCommands = [
   }
 ];
 
-const commands = [...publicCommands, ...adminOnlyCommands];
+// Ensure public commands have no default member permissions so they are visible to all
+const publicProcessed = publicCommands.map(cmd => ({ ...cmd, default_member_permissions: null }));
+const commands = [...publicProcessed, ...adminOnlyCommands];
 
 // В Node 22 использование top‑level await в CommonJS приводит к ошибке. Поэтому
 // переносим асинхронную логику в отдельную функцию и вызываем её.
