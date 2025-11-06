@@ -407,12 +407,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
           const { addCupPrediction, getCupPredictionsForUser } = require('./utils/cupManager');
           const { logAction } = require('./utils/logger');
           const round = settings.cupRound || 0;
-          // Проверяем, есть ли уже прогноз этого пользователя в раунде
+          // Проверяем: пользователь может иметь несколько прогнозов в одном раунде,
+          // но не может повторно ставить на тот же матч — это проверяется ниже.
           const userPreds = getCupPredictionsForUser(interaction.guild.id, userId) || [];
-          if (userPreds.find(p => p.roundId === round)) {
-            try { await interaction.update({ content: '❌ Вы уже сделали прогноз в этом раунде CUP.', components: [] }); } catch { await interaction.reply({ content: '❌ Вы уже сделали прогноз в этом раунде CUP.', ephemeral: true }); }
-            return;
-          }
           // Проверяем, не дублирует ли пользователь прогноз на этот матч
           if (userPreds.find(p => p.matchKey === matchKey)) {
             try { await interaction.update({ content: '❌ Вы уже сделали прогноз на этот матч в CUP.', components: [] }); } catch { await interaction.reply({ content: '❌ Вы уже сделали прогноз на этот матч в CUP.', ephemeral: true }); }
@@ -457,6 +454,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
         if (!focused) return;
         const optionName = focused.name;
         if (optionName === 'team' || optionName === 'name') {
+          // Для команды cuproster желаем предлагать команды, заданные админом для CUP.
+          if (interaction.commandName === 'cuproster') {
+            try {
+              const { getSettings } = require('./database/settingsManager');
+              const settings = await getSettings(interaction.guild.id);
+              const cupTeams = Array.isArray(settings.cupTeams) ? settings.cupTeams : [];
+              const out = (cupTeams.slice(0, 25)).map((n) => ({ name: n, value: n }));
+              return interaction.respond(out);
+            } catch (e) {
+              console.error('autocomplete cuproster team error:', e);
+            }
+          }
           const { getAllTeams } = require('./utils/teamManager');
           const teams = getAllTeams();
           const names = Object.keys(teams).slice(0, 25);

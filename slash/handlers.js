@@ -415,22 +415,37 @@ const handlers = {
         const cupTeams = Array.isArray(settings.cupTeams) ? settings.cupTeams : [];
         if (!cupTeams || cupTeams.length < 2) return replyPriv(interaction, { content: '❌ Команды для CUP не установлены. Ожидайте администратора.', ephemeral: true });
 
-        // Проверка: пользователь может делать только один прогноз в раунде
-        const { getCupPredictionsForUser, addCupPrediction } = require('../utils/cupManager');
-        const userPreds = getCupPredictionsForUser(interaction.guild.id, interaction.user.id);
-        if (userPreds.find(p => p.roundId === round)) {
-          return replyPriv(interaction, { content: '❌ Вы уже сделали прогноз в этом раунде CUP.', ephemeral: true });
+        // Получим явные пары, если админ их задал через /cupvs
+        const cupPairs = Array.isArray(settings.cupPairs) ? settings.cupPairs.slice() : [];
+        // processed teams (отфильтровываем матчи с уже обработанными командами)
+        const processed = Array.isArray(settings.cupProcessedTeams) ? settings.cupProcessedTeams : [];
+        // Определим составы (rosters) для поиска команды пользователя
+        const rosters = (settings.cupRosters && typeof settings.cupRosters === 'object') ? settings.cupRosters : {};
+        let userTeam = null;
+        for (const [tName, members] of Object.entries(rosters)) {
+          if (Array.isArray(members) && members.map(String).includes(String(interaction.user.id))) { userTeam = tName; break; }
         }
 
-        // Если нет параметров — интерактивный выбор матча
-        // Формируем все возможные пары из cupTeams
-        const pairs = [];
-        for (let i = 0; i < cupTeams.length; i++) {
-          for (let j = i + 1; j < cupTeams.length; j++) {
-            pairs.push([cupTeams[i], cupTeams[j]]);
+        // Формируем список доступных пар: если админ задал cupPairs — используем их, иначе все сочетания
+        let pairs = [];
+        if (cupPairs.length > 0) {
+          // cupPairs хранятся как строковые ключи 'TeamA_TeamB'
+          pairs = cupPairs.map(k => k.split('_')).filter(p => p.length === 2);
+        } else {
+          for (let i = 0; i < cupTeams.length; i++) {
+            for (let j = i + 1; j < cupTeams.length; j++) {
+              pairs.push([cupTeams[i], cupTeams[j]]);
+            }
           }
         }
-        if (!pairs.length) return replyPriv(interaction, { content: '❌ Нет доступных матчей для CUP.', ephemeral: true });
+        // Убираем пары, в которых есть обработанные команды
+        pairs = pairs.filter(p => !processed.includes(p[0]) && !processed.includes(p[1]));
+        if (pairs.length === 0) return replyPriv(interaction, { content: '❌ Нет доступных матчей для CUP.', ephemeral: true });
+        // Если пользователь состоит в команде — исключаем пары с его командой
+        if (userTeam) {
+          pairs = pairs.filter(p => p[0] !== userTeam && p[1] !== userTeam);
+          if (pairs.length === 0) return replyPriv(interaction, { content: '❌ Нет доступных матчей для вас (ваша команда участвует в пары).', ephemeral: true });
+        }
         const menuOptions = pairs.map(p => ({ label: `${p[0]} vs ${p[1]}`, value: `${p[0]}_${p[1]}` }));
         const select = new StringSelectMenuBuilder()
           .setCustomId(`cup_match_select:${interaction.user.id}`)
@@ -441,6 +456,79 @@ const handlers = {
       } catch (e) {
         console.error('[cup] error', e);
         return replyPriv(interaction, { content: '❌ Ошибка при обработке команды /cup.' });
+      }
+    }
+  },
+
+  // Установить состав (5 участников) для команды в режиме CUP
+  cuproster: {
+    adminOnly: true,
+    async run(interaction) {
+      try {
+        const teamName = interaction.options.getString('team', true)?.trim();
+        const p1 = interaction.options.getUser('player1', true);
+        const p2 = interaction.options.getUser('player2', true);
+        const p3 = interaction.options.getUser('player3', true);
+        const p4 = interaction.options.getUser('player4', true);
+        const p5 = interaction.options.getUser('player5', true);
+        const players = [p1, p2, p3, p4, p5].map(u => String(u.id));
+        // Проверяем, что команда указана в cupTeams
+        const settings = await getSettings(interaction.guild.id);
+        const cupTeams = Array.isArray(settings.cupTeams) ? settings.cupTeams : [];
+        if (!cupTeams.includes(teamName)) return replyPriv(interaction, { content: '❌ Указанная команда не зарегистрирована для CUP. Используйте /ddcupsetteams.', ephemeral: true });
+        // Уникальность участников
+        if (new Set(players).size !== players.length) return replyPriv(interaction, { content: '❌ Участники должны быть уникальными.', ephemeral: true });
+        // Проверяем, что участники не состоят в другом cup-roster
+        const rosters = (settings.cupRosters && typeof settings.cupRosters === 'object') ? settings.cupRosters : {};
+        for (const [t, mems] of Object.entries(rosters)) {
+          if (t === teamName) continue;
+          const conflict = (mems || []).some(m => players.includes(String(m)));
+          if (conflict) return replyPriv(interaction, { content: `❌ Один из пользователей уже назначен в состав команды **${t}**.`, ephemeral: true });
+        }
+        // Сохраняем состав
+        const newRosters = Object.assign({}, rosters);
+        newRosters[teamName] = players;
+        await patchSettings(interaction.guild.id, { cupRosters: newRosters });
+        await logAction('cupSetRoster', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, team: teamName, players });
+        return replyPriv(interaction, { content: `✅ Состав CUP для **${teamName}** установлен (${players.map(p => `<@${p}>`).join(', ')}).` });
+      } catch (e) {
+        console.error('[cuproster] error', e);
+        return replyPriv(interaction, { content: '❌ Ошибка при установке состава CUP.' });
+      }
+    }
+  },
+
+  // Установить пару противников (один матч) для CUP
+  cupvs: {
+    adminOnly: true,
+    async run(interaction) {
+      try {
+        const t1 = interaction.options.getString('team1', true).trim();
+        const t2 = interaction.options.getString('team2', true).trim();
+        if (t1 === t2) return replyPriv(interaction, { content: '❌ Нельзя указать одинаковые команды.', ephemeral: true });
+        const settings = await getSettings(interaction.guild.id);
+        const cupTeams = Array.isArray(settings.cupTeams) ? settings.cupTeams : [];
+        if (!cupTeams.includes(t1) || !cupTeams.includes(t2)) return replyPriv(interaction, { content: '❌ Одна или обе команды не в списке CUP.', ephemeral: true });
+        // Сохраняем пары как отсортированный matchKey
+        const sorted = [t1, t2].sort((a, b) => a.localeCompare(b));
+        const matchKey = `${sorted[0]}_${sorted[1]}`;
+        const pairs = Array.isArray(settings.cupPairs) ? settings.cupPairs.slice() : [];
+        // Проверка на дублирование пары
+        if (pairs.includes(matchKey)) return replyPriv(interaction, { content: '❌ Такая пара уже добавлена.', ephemeral: true });
+        // Проверим, не используется ли одна из команд в другой паре (чтобы команда не оказалась в нескольких матчах одновременно)
+        for (const p of pairs) {
+          const [a, b] = p.split('_');
+          if (a === sorted[0] || a === sorted[1] || b === sorted[0] || b === sorted[1]) {
+            return replyPriv(interaction, { content: `❌ Одна из команд уже участвует в другой паре: ${p.replace('_', ' vs ')}.`, ephemeral: true });
+          }
+        }
+        pairs.push(matchKey);
+        await patchSettings(interaction.guild.id, { cupPairs: pairs });
+        await logAction('cupAddPair', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, match: matchKey });
+        return replyPriv(interaction, { content: `✅ Пара добавлена: **${sorted[0]}** vs **${sorted[1]}**.` });
+      } catch (e) {
+        console.error('[cupvs] error', e);
+        return replyPriv(interaction, { content: '❌ Ошибка при добавлении пары CUP.' });
       }
     }
   },
@@ -940,7 +1028,7 @@ const handlers = {
     async run(interaction) {
       try {
   // Закрываем CUP и очищаем список команд и обработанных результатов.
-        await patchSettings(interaction.guild.id, { cupEnabled: false, cupRound: 0, cupTeams: [], cupResults: [], cupProcessedTeams: [], cupLocked: false });
+        await patchSettings(interaction.guild.id, { cupEnabled: false, cupRound: 0, cupTeams: [], cupPairs: [], cupResults: [], cupProcessedTeams: [], cupLocked: false });
         await logAction('ddcupWindow', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, enabled: false });
         return replyPriv(interaction, { content: '🛑 CUP окно закрыто.' });
       } catch (e) {
@@ -1663,6 +1751,8 @@ module.exports = {
   ddcup3:  { run: handlers.ddcup3.run,  adminOnly: true },
   ddcupstop:{ run: handlers.ddcupstop.run, adminOnly: true },
   ddcupsetteams: { run: handlers.ddcupsetteams.run, adminOnly: true },
+  cuproster: { run: handlers.cuproster.run, adminOnly: true },
+  cupvs: { run: handlers.cupvs.run, adminOnly: true },
   cup:    { run: handlers.cup.run, adminOnly: false },
   setlog:  { run: handlers.setlog.run,  adminOnly: true },
 

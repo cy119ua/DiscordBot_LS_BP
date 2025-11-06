@@ -16,7 +16,15 @@ function addCupPrediction(guildId, userId, matchKey, prediction, roundId) {
   if (!guildId || !userId || !matchKey || !prediction) return false;
   const data = loadData();
   data.bets = Array.isArray(data.bets) ? data.bets : [];
-  data.bets.push({ guildId, userId, matchKey, prediction, roundId: Number(roundId || 0), ts: Date.now() });
+  // Если у пользователя уже есть прогноз на этот матч — обновляем его
+  const idx = data.bets.findIndex(b => String(b.guildId) === String(guildId) && String(b.userId) === String(userId) && b.matchKey === matchKey);
+  if (idx !== -1) {
+    data.bets[idx].prediction = prediction;
+    data.bets[idx].roundId = Number(roundId || 0);
+    data.bets[idx].ts = Date.now();
+  } else {
+    data.bets.push({ guildId, userId, matchKey, prediction, roundId: Number(roundId || 0), ts: Date.now() });
+  }
   saveData(data);
   return true;
 }

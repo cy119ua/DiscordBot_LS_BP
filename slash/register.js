@@ -161,6 +161,26 @@ const adminOnlyCommands = [
     ]
   },
   {
+    name: 'cuproster',
+    description: 'Установить состав (5 участников) для команды в режиме CUP',
+    options: [
+      { name: 'team', description: 'Название команды (из CUP)', type: 3, required: true, autocomplete: true },
+      { name: 'player1', description: 'Участник #1', type: 6, required: true },
+      { name: 'player2', description: 'Участник #2', type: 6, required: true },
+      { name: 'player3', description: 'Участник #3', type: 6, required: true },
+      { name: 'player4', description: 'Участник #4', type: 6, required: true },
+      { name: 'player5', description: 'Участник #5', type: 6, required: true }
+    ]
+  },
+  {
+    name: 'cupvs',
+    description: 'Установить пару противников для CUP (один матч)',
+    options: [
+      { name: 'team1', description: 'Команда #1 (из CUP)', type: 3, required: true, autocomplete: true },
+      { name: 'team2', description: 'Команда #2 (из CUP)', type: 3, required: true, autocomplete: true }
+    ]
+  },
+  {
     name: 'setlog',
     description: 'Установить лог-канал',
      
