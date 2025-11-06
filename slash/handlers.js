@@ -406,6 +406,7 @@ const handlers = {
   },
 
   cup: {
+    adminOnly: false,
     async run(interaction) {
       try {
         const settings = await getSettings(interaction.guild.id);
