@@ -562,11 +562,22 @@ client.on(Events.InteractionCreate, async (interaction) => {
      */
   const publiclyAccessibleCommands = ['bp', 'code', 'usedd', 'cup'];
     const requiresAdmin = handler.adminOnly && !publiclyAccessibleCommands.includes(interaction.commandName);
+    console.log(`[slash] handler=${interaction.commandName} requiresAdmin=${requiresAdmin}`);
 
     if (requiresAdmin) {
-      const allowed = await isWhitelisted(interaction.user);
+      let allowed = false;
+      try {
+        console.log(`[slash] checking whitelist for user=${interaction.user.tag}(${interaction.user.id})`);
+        allowed = await isWhitelisted(interaction.user);
+      } catch (checkErr) {
+        console.error('[slash] isWhitelisted threw', checkErr && (checkErr.stack || checkErr));
+        // Return a helpful ephemeral error so the interaction isn't left hanging
+        try { await interaction.reply({ content: '❌ Ошибка проверки прав (isWhitelisted). Проверьте логи.', ephemeral: true }); } catch (replyErr) { console.error('[slash] failed to reply after whitelist error', replyErr); }
+        return;
+      }
       if (!allowed) {
-        return interaction.reply({ content: '⛔ Недостаточно прав.', ephemeral: true });
+        try { await interaction.reply({ content: '⛔ Недостаточно прав.', ephemeral: true }); } catch (replyErr) { console.error('[slash] failed to reply insufficient rights', replyErr); }
+        return;
       }
     }
 
