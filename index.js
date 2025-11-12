@@ -565,23 +565,29 @@ client.on(Events.InteractionCreate, async (interaction) => {
     console.log(`[slash] handler=${interaction.commandName} requiresAdmin=${requiresAdmin}`);
 
     if (requiresAdmin) {
+      console.log(`[slash] ⚠️ Requires admin, checking whitelist for user=${interaction.user.tag}(${interaction.user.id})`);
       let allowed = false;
       try {
-        console.log(`[slash] checking whitelist for user=${interaction.user.tag}(${interaction.user.id})`);
+        console.log(`[slash] 🔍 calling isWhitelisted()...`);
         allowed = await isWhitelisted(interaction.user);
+        console.log(`[slash] ✅ isWhitelisted returned: ${allowed}`);
       } catch (checkErr) {
-        console.error('[slash] isWhitelisted threw', checkErr && (checkErr.stack || checkErr));
+        console.error('[slash] ❌ isWhitelisted threw', checkErr && (checkErr.stack || checkErr));
         // Return a helpful ephemeral error so the interaction isn't left hanging
         try { await interaction.reply({ content: '❌ Ошибка проверки прав (isWhitelisted). Проверьте логи.', ephemeral: true }); } catch (replyErr) { console.error('[slash] failed to reply after whitelist error', replyErr); }
         return;
       }
       if (!allowed) {
+        console.log(`[slash] ❌ whitelist check failed, denying access`);
         try { await interaction.reply({ content: '⛔ Недостаточно прав.', ephemeral: true }); } catch (replyErr) { console.error('[slash] failed to reply insufficient rights', replyErr); }
         return;
       }
+      console.log(`[slash] ✅ whitelist check passed, proceeding to handler`);
     }
 
+    console.log(`[slash] 🚀 calling handler.run() for command=${interaction.commandName}`);
     await handler.run(interaction, client);
+    console.log(`[slash] 🎉 handler.run() completed for command=${interaction.commandName}`);
   } catch (e) {
     // Фильтруем ошибки DiscordAPIError[10062] и [40060] (Unknown interaction, Interaction has already been acknowledged)
     const code = e?.code || e?.rawError?.code;

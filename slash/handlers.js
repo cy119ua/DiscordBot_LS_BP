@@ -1042,24 +1042,31 @@ const handlers = {
   ddcuplock: {
     adminOnly: true,
     async run(interaction) {
+      console.log(`[ddcuplock] ENTER handler.run()`);
       // Defensive implementation: prevent any single failing helper (patchSettings/logAction)
       // from leaving the interaction without a response.
       const optionSafe = (name) => {
         try { return interaction.options.getString(name); } catch { return null; }
       };
       const action = (optionSafe('action') || 'lock').toString();
+      console.log(`[ddcuplock] action=${action}`);
       if (action !== 'lock' && action !== 'unlock') {
+        console.log(`[ddcuplock] INVALID action, replying error`);
         try { return replyPriv(interaction, { content: '❌ Неверное действие. Используйте lock или unlock.' }); } catch (e) { console.error('[ddcuplock] reply error invalid action', e); return; }
       }
       try {
+        console.log(`[ddcuplock] calling patchSettings with cupLocked=${action === 'lock'}`);
         await patchSettings(interaction.guild.id, { cupLocked: action === 'lock' });
+        console.log(`[ddcuplock] patchSettings OK`);
       } catch (e) {
-        console.error('[ddcuplock] patchSettings error', e);
+        console.error('[ddcuplock] patchSettings ERROR', e);
         try { await replyPriv(interaction, { content: '❌ Не удалось сохранить состояние блокировки (ошибка БД).' }); } catch (err) { console.error('[ddcuplock] reply error after patch fail', err); }
         return;
       }
       try {
+        console.log(`[ddcuplock] calling logAction`);
         await logAction('ddcupLock', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, action });
+        console.log(`[ddcuplock] logAction OK`);
       } catch (e) {
         // Логирование не критично — сообщаем админу, но продолжаем
         console.error('[ddcuplock] logAction failed', e);
