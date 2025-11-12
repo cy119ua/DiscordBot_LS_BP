@@ -418,9 +418,9 @@ const handlers = {
 
         // Получим явные пары, если админ их задал через /cupvs
         const cupPairs = Array.isArray(settings.cupPairs) ? settings.cupPairs.slice() : [];
-        // processed teams (отфильтровываем матчи с уже обработанными командами)
-        const processed = Array.isArray(settings.cupProcessedTeams) ? settings.cupProcessedTeams : [];
-        // Определим составы (rosters) для поиска команды пользователя
+      const optionSafe = (name) => {
+        try { return interaction.options.getString(name); } catch (err) { console.error('[ddcuplock] optionSafe error', err); return null; }
+      };
         const rosters = (settings.cupRosters && typeof settings.cupRosters === 'object') ? settings.cupRosters : {};
         let userTeam = null;
         for (const [tName, members] of Object.entries(rosters)) {
@@ -867,12 +867,12 @@ const handlers = {
         // Очищаем все активные ставки
         {
           const { clearAllBets } = require('../utils/betManager');
-          clearAllBets();
+          try { clearAllBets(); } catch (e) { console.error('[dbreset] clearAllBets failed', e); }
         }
         // Очищаем все прогнозы
         {
           const { clearAllPredictions } = require('../utils/predictionManager');
-          clearAllPredictions();
+          try { clearAllPredictions(); } catch (e) { console.error('[dbreset] clearAllPredictions failed', e); }
         }
         // Очищаем историю ставок и историю команд
         {
@@ -1068,7 +1068,7 @@ const handlers = {
         if (action === 'lock') return replyPriv(interaction, { content: '� Прогнозы в CUP временно запрещены. Откройте новое окно (/ddcup1/2/3) чтобы снова разрешить ставки.' });
         return replyPriv(interaction, { content: '🔓 Прогнозы в CUP снова разрешены. Пользователи могут делать /cup.' });
       } catch (e) {
-        console.error('[ddcuplock] final reply error', e);
+        console.error('[ddcuplock] final reply error', e && (e.stack || e));
       }
     }
   },
