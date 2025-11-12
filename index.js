@@ -547,7 +547,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
     try { console.log(`[slash] command=${interaction.commandName} user=${interaction.user.tag}(${interaction.user.id}) guild=${interaction.guild?.id || 'DM'}`); } catch {}
 
     const handler = slashHandlers[interaction.commandName];
-    if (!handler) return;
+    console.log(`[slash] handler lookup: commandName=${interaction.commandName} handler=${handler ? 'found' : 'NOT FOUND'}`);
+    if (!handler) {
+      console.log(`[slash] handler is null/undefined, returning`);
+      return;
+    }
 
     /*
      * Проверка прав для админ‑команд.
@@ -562,32 +566,29 @@ client.on(Events.InteractionCreate, async (interaction) => {
      */
   const publiclyAccessibleCommands = ['bp', 'code', 'usedd', 'cup'];
     const requiresAdmin = handler.adminOnly && !publiclyAccessibleCommands.includes(interaction.commandName);
-    console.log(`[slash] handler=${interaction.commandName} requiresAdmin=${requiresAdmin}`);
+    console.log(`[slash] handler=${interaction.commandName} requiresAdmin=${requiresAdmin} adminOnly=${handler.adminOnly}`);
 
     if (requiresAdmin) {
-      console.log(`[slash] ⚠️ Requires admin, checking whitelist for user=${interaction.user.tag}(${interaction.user.id})`);
       let allowed = false;
       try {
-        console.log(`[slash] 🔍 calling isWhitelisted()...`);
+        console.log(`[slash] checking whitelist for user=${interaction.user.tag}(${interaction.user.id})`);
         allowed = await isWhitelisted(interaction.user);
-        console.log(`[slash] ✅ isWhitelisted returned: ${allowed}`);
+        console.log(`[slash] whitelist check result: allowed=${allowed}`);
       } catch (checkErr) {
-        console.error('[slash] ❌ isWhitelisted threw', checkErr && (checkErr.stack || checkErr));
+        console.error('[slash] isWhitelisted threw', checkErr && (checkErr.stack || checkErr));
         // Return a helpful ephemeral error so the interaction isn't left hanging
         try { await interaction.reply({ content: '❌ Ошибка проверки прав (isWhitelisted). Проверьте логи.', ephemeral: true }); } catch (replyErr) { console.error('[slash] failed to reply after whitelist error', replyErr); }
         return;
       }
       if (!allowed) {
-        console.log(`[slash] ❌ whitelist check failed, denying access`);
         try { await interaction.reply({ content: '⛔ Недостаточно прав.', ephemeral: true }); } catch (replyErr) { console.error('[slash] failed to reply insufficient rights', replyErr); }
         return;
       }
-      console.log(`[slash] ✅ whitelist check passed, proceeding to handler`);
     }
 
-    console.log(`[slash] 🚀 calling handler.run() for command=${interaction.commandName}`);
+    console.log(`[slash] about to call handler.run for ${interaction.commandName}`);
     await handler.run(interaction, client);
-    console.log(`[slash] 🎉 handler.run() completed for command=${interaction.commandName}`);
+    console.log(`[slash] handler.run completed for ${interaction.commandName}`);
   } catch (e) {
     // Фильтруем ошибки DiscordAPIError[10062] и [40060] (Unknown interaction, Interaction has already been acknowledged)
     const code = e?.code || e?.rawError?.code;
