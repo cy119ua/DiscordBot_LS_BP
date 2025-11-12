@@ -1768,6 +1768,7 @@ module.exports = {
   ddcup2:  { run: handlers.ddcup2.run,  adminOnly: true },
   ddcup3:  { run: handlers.ddcup3.run,  adminOnly: true },
   ddcupstop:{ run: handlers.ddcupstop.run, adminOnly: true },
+  ddcuplock: { run: handlers.ddcuplock.run, adminOnly: true },
   ddcupsetteams: { run: handlers.ddcupsetteams.run, adminOnly: true },
   cuproster: { run: handlers.cuproster.run, adminOnly: true },
   cupvs: { run: handlers.cupvs.run, adminOnly: true },
