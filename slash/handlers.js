@@ -1042,22 +1042,33 @@ const handlers = {
   ddcuplock: {
     adminOnly: true,
     async run(interaction) {
+      // Defensive implementation: prevent any single failing helper (patchSettings/logAction)
+      // from leaving the interaction without a response.
+      const optionSafe = (name) => {
+        try { return interaction.options.getString(name); } catch { return null; }
+      };
+      const action = (optionSafe('action') || 'lock').toString();
+      if (action !== 'lock' && action !== 'unlock') {
+        try { return replyPriv(interaction, { content: '❌ Неверное действие. Используйте lock или unlock.' }); } catch (e) { console.error('[ddcuplock] reply error invalid action', e); return; }
+      }
       try {
-        const action = interaction.options?.getString?.('action') || 'lock';
-        if (action === 'lock') {
-          await patchSettings(interaction.guild.id, { cupLocked: true });
-          await logAction('ddcupLock', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, action: 'lock' });
-          return replyPriv(interaction, { content: '🔒 Прогнозы в CUP временно запрещены. Откройте новое окно (/ddcup1/2/3) чтобы снова разрешить ставки.' });
-        } else if (action === 'unlock') {
-          await patchSettings(interaction.guild.id, { cupLocked: false });
-          await logAction('ddcupLock', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, action: 'unlock' });
-          return replyPriv(interaction, { content: '🔓 Прогнозы в CUP снова разрешены. Пользователи могут делать /cup.' });
-        } else {
-          return replyPriv(interaction, { content: '❌ Неверное действие. Используйте lock или unlock.' });
-        }
+        await patchSettings(interaction.guild.id, { cupLocked: action === 'lock' });
       } catch (e) {
-        console.error('[ddcuplock] error', e);
-        return replyPriv(interaction, { content: '❌ Ошибка при изменении состояния блокировки прогнозов CUP.' });
+        console.error('[ddcuplock] patchSettings error', e);
+        try { await replyPriv(interaction, { content: '❌ Не удалось сохранить состояние блокировки (ошибка БД).' }); } catch (err) { console.error('[ddcuplock] reply error after patch fail', err); }
+        return;
+      }
+      try {
+        await logAction('ddcupLock', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, action });
+      } catch (e) {
+        // Логирование не критично — сообщаем админу, но продолжаем
+        console.error('[ddcuplock] logAction failed', e);
+      }
+      try {
+        if (action === 'lock') return replyPriv(interaction, { content: '� Прогнозы в CUP временно запрещены. Откройте новое окно (/ddcup1/2/3) чтобы снова разрешить ставки.' });
+        return replyPriv(interaction, { content: '🔓 Прогнозы в CUP снова разрешены. Пользователи могут делать /cup.' });
+      } catch (e) {
+        console.error('[ddcuplock] final reply error', e);
       }
     }
   },
