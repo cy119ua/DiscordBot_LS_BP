@@ -418,14 +418,17 @@ const handlers = {
 
         // Получим явные пары, если админ их задал через /cupvs
         const cupPairs = Array.isArray(settings.cupPairs) ? settings.cupPairs.slice() : [];
-      const optionSafe = (name) => {
-        try { return interaction.options.getString(name); } catch (err) { console.error('[ddcuplock] optionSafe error', err); return null; }
-      };
+        const optionSafe = (name) => {
+          try { return interaction.options.getString(name); } catch (err) { console.error('[ddcuplock] optionSafe error', err); return null; }
+        };
         const rosters = (settings.cupRosters && typeof settings.cupRosters === 'object') ? settings.cupRosters : {};
         let userTeam = null;
         for (const [tName, members] of Object.entries(rosters)) {
           if (Array.isArray(members) && members.map(String).includes(String(interaction.user.id))) { userTeam = tName; break; }
         }
+
+        // Определяем обработанные команды (processed)
+        const processed = Array.isArray(settings.cupProcessedTeams) ? settings.cupProcessedTeams : [];
 
         // Формируем список доступных пар: если админ задал cupPairs — используем их, иначе все сочетания
         let pairs = [];
