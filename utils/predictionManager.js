@@ -24,13 +24,15 @@ function savePredictions(preds) {
  * @param {string} prediction Предсказанный исход: "team1", "team2" или "draw"
  * @returns {boolean}
  */
-function addPrediction(userId, matchKey, prediction) {
-  if (!userId || !matchKey || !prediction) return false;
+function addPrediction(userId, matchKey, prediction, ddWindowId) {
+  if (!userId || !matchKey || !prediction || !ddWindowId) return false;
   const preds = loadPredictions();
+  // Проверяем, делал ли пользователь ставку в этом окне
+  if (preds.some(p => p.userId === userId && p.ddWindowId === ddWindowId)) {
+    return false; // Уже есть ставка для этого окна
+  }
   const now = Date.now();
-  // Добавляем новую запись всегда, чтобы история сохранялась
-  const predObj = { userId, matchKey, prediction, ts: now };
-  if (arguments.length > 3) predObj.ddWindowId = arguments[3];
+  const predObj = { userId, matchKey, prediction, ts: now, ddWindowId };
   preds.push(predObj);
   savePredictions(preds);
   return true;
