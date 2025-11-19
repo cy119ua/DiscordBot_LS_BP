@@ -76,14 +76,8 @@ function clearPredictionsForMatch(matchKey) {
  * содержит пустой массив predictions.
  */
 function clearAllPredictions() {
-  // Вместо удаления истории просто сбрасываем ddWindowId у всех предсказаний
-  const preds = loadPredictions();
-  for (const p of preds) {
-    if (p.hasOwnProperty('ddWindowId')) {
-      delete p.ddWindowId;
-    }
-  }
-  savePredictions(preds);
+  // История предиктов теперь не очищается и не изменяется
+  // Эта функция оставлена пустой для обратной совместимости
 }
 
 /**
