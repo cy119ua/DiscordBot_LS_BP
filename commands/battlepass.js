@@ -76,20 +76,30 @@ function makeEmbed({ user, page, level, xp, invites = 0, doubleTokens = 0, raffl
   return embed;
 }
 
+function addHistoryButton() {
+  return new ButtonBuilder()
+    .setCustomId('predict_history')
+    .setLabel('История ставок')
+    .setStyle(ButtonStyle.Danger);
+}
+
+// Добавляем кнопку в существующий ActionRow
+const historyButton = addHistoryButton();
+const actionRow = new ActionRowBuilder().addComponents(historyButton);
+
 async function onButton(interaction, client) {
   if (!interaction.isButton()) return;
-  // Обработка кнопок Боевого пропуска
-  // Кнопки: страницы, топ-20, predict
+
   if (interaction.customId === 'predict_history') {
-    // Кнопка истории прогнозов
     const { EmbedBuilder } = require('discord.js');
     const { getPredictionsForUser } = require('../utils/predictionManager');
     const userId = interaction.user.id;
     const predictions = getPredictionsForUser(userId);
+
     if (!predictions || predictions.length === 0) {
       return await interaction.reply({ content: '🕑 У вас нет истории прогнозов.', ephemeral: true });
     }
-    // Формируем список всех прогнозов пользователя за всё время
+
     const lines = predictions.map((p) => {
       const date = new Date(p.ts).toLocaleString();
       let outcome = p.prediction;
@@ -98,10 +108,12 @@ async function onButton(interaction, client) {
       else if (outcome === 'draw') outcome = 'ничья';
       return `🟨 [${date}] Матч: **${p.matchKey}** — прогноз: ${outcome}`;
     });
+
     const embed = new EmbedBuilder()
-      .setColor(0xf5c518)
-      .setTitle('История прогнозов — ваш профиль')
+      .setColor(0xff0000)
+      .setTitle('История ставок')
       .setDescription(lines.join('\n'));
+
     return await interaction.reply({ embeds: [embed], ephemeral: true });
   }
 
