@@ -974,9 +974,11 @@ const handlers = {
   ddstop: {
     adminOnly: true,
     async run(interaction) {
+      // Отключение Double-Down окна
+      // Раньше здесь могла быть очистка предиктов, теперь не трогаем predictions.json!
+      const { patchSettings } = require('../database/settingsManager');
       await patchSettings(interaction.guild.id, { ddEnabled: false });
-      await logAction('doubleStakeWindow', interaction.guild, { admin: { id: interaction.user.id, tag: interaction.user.tag }, enabled: false });
-      return replyPriv(interaction, { content: '🛑 Окно Double-Down закрыто.' });
+      return interaction.reply({ content: '⛔ Окно Double-Down закрыто. История ставок сохранена.', ephemeral: true });
     }
   },
 
