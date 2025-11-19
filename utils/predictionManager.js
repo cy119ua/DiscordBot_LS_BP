@@ -25,15 +25,20 @@ function savePredictions(preds) {
  * @returns {boolean}
  */
 function addPrediction(userId, matchKey, prediction, ddWindowId) {
-  if (!userId || !matchKey || !prediction || !ddWindowId) return false;
+  if (!userId || !matchKey || !prediction || !ddWindowId) {
+    console.error('[addPrediction] Missing required parameters:', { userId, matchKey, prediction, ddWindowId });
+    return false;
+  }
   const preds = loadPredictions();
   // Проверяем, делал ли пользователь ставку в этом окне
   if (preds.some(p => p.userId === userId && p.ddWindowId === ddWindowId)) {
+    console.warn('[addPrediction] Duplicate prediction for user and window:', { userId, ddWindowId });
     return false; // Уже есть ставка для этого окна
   }
   const now = Date.now();
   const predObj = { userId, matchKey, prediction, ts: now, ddWindowId };
   preds.push(predObj);
+  console.log('[addPrediction] Adding prediction:', predObj);
   savePredictions(preds);
   return true;
 }
