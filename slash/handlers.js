@@ -1742,15 +1742,13 @@ const handlers = {
     adminOnly: true,
     async run(interaction) {
       const db = global.db;
-      const guild = interaction.guild;
       
       // Получаем всех пользователей через list('user_')
       const usersObj = await db.list('user_');
-      let users = Object.values(usersObj)
+      const users = Object.values(usersObj)
         .filter(u => u.id)
         .map(u => ({
           id: u.id,
-          nickname: u.nickname || 'Unknown',
           level: calculateLevel(u.xp || 0),
           xp: u.xp || 0,
           cardPacks: u.cardPacks || 0,
@@ -1763,22 +1761,10 @@ const handlers = {
         return replyPriv(interaction, { content: '📊 Нет пользователей с уровнем выше 2.' });
       }
 
-      // Получаем серверные никнеймы для каждого пользователя
-      users = await Promise.all(users.map(async (u) => {
-        try {
-          const member = await guild.members.fetch(u.id);
-          u.serverNickname = member.displayName || member.user.tag || u.nickname;
-        } catch (e) {
-          // Если не можем найти пользователя на сервере, используем сохраненный никнейм
-          u.serverNickname = u.nickname;
-        }
-        return u;
-      }));
-
       // Формируем строки с информацией о каждом пользователе
       const lines = users.map((u, i) => {
         const star = u.premium ? '⭐ ' : '';
-        return `${i + 1}. ${star}**${u.serverNickname}** — Уровень: ${u.level} — Паки карт: ${u.cardPacks}`;
+        return `${i + 1}. ${star}<@${u.id}> — Уровень: ${u.level} — Паки карт: ${u.cardPacks}`;
       });
 
       // Разделяем на группы по 20 для возможного разбиения на несколько сообщений
