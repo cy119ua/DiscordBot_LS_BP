@@ -1,6 +1,14 @@
-# Replit system files
-.local/
-.replit
-.env
-.env.example
 node_modules/
+.env
+.env.*.local
+*.log
+tmp/
+temp/
+dist/
+build/
+coverage/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+slash/oracleJdk-24/
