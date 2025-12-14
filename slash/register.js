@@ -52,6 +52,10 @@ const publicCommands = [
   {
     name: 'infop',
     description: 'Показать историю предсказаний всех пользователей'
+  },
+  {
+    name: 'userstat',
+    description: 'Показать статистику пользователей (уровень > 2)'
   }
 ];
 

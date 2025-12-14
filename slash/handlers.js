@@ -1736,6 +1736,66 @@ const handlers = {
       const embed = new EmbedBuilder().setColor(0x2b6cb0).setTitle(title).setDescription(lines.join('\n'));
       return replyPriv(interaction, { embeds: [embed] });
     }
+  },
+
+  userstat: {
+    adminOnly: false,
+    async run(interaction) {
+      const db = global.db;
+      
+      // Получаем всех пользователей через list('user_')
+      const usersObj = await db.list('user_');
+      const users = Object.values(usersObj)
+        .filter(u => u.id)
+        .map(u => ({
+          id: u.id,
+          nickname: u.nickname || 'Unknown',
+          level: calculateLevel(u.xp || 0),
+          xp: u.xp || 0,
+          cardPacks: u.cardPacks || 0,
+          premium: u.premium || false
+        }))
+        .filter(u => u.level > 2)
+        .sort((a, b) => b.level - a.level || b.xp - a.xp);
+
+      if (users.length === 0) {
+        return replyPriv(interaction, { content: '📊 Нет пользователей с уровнем выше 2.' });
+      }
+
+      // Формируем строки с информацией о каждом пользователе
+      const lines = users.map((u, i) => {
+        const star = u.premium ? '⭐ ' : '';
+        return `${i + 1}. ${star}**${u.nickname}** — Уровень: ${u.level} — Паки карт: ${u.cardPacks}`;
+      });
+
+      // Разделяем на группы по 20 для возможного разбиения на несколько сообщений
+      const chunks = [];
+      for (let i = 0; i < lines.length; i += 20) {
+        chunks.push(lines.slice(i, i + 20));
+      }
+
+      // Создаём embed для каждой группы
+      const embeds = chunks.map((chunk, idx) => {
+        const embed = new EmbedBuilder()
+          .setColor(0x2b6cb0)
+          .setTitle(chunks.length > 1 ? `📊 Статистика пользователей (часть ${idx + 1})` : '📊 Статистика пользователей')
+          .setDescription(chunk.join('\n'));
+        
+        if (chunks.length === 1) {
+          embed.setFooter({ text: `Всего пользователей: ${users.length}` });
+        }
+        
+        return embed;
+      });
+
+      // Отправляем первый embed
+      await replyPriv(interaction, { embeds: [embeds[0]] });
+      
+      // Отправляем остальные embeds как follow-up сообщения
+      for (let i = 1; i < embeds.length; i++) {
+        await interaction.followUp({ embeds: [embeds[i]], ephemeral: true });
+      }
+    }
   }
 };
 
@@ -1746,6 +1806,7 @@ module.exports = {
   predict: { run: handlers.predict.run },
   bp: { run: handlers.bp.run, adminOnly: false },
   infop: { run: handlers.infop.run, adminOnly: false },
+  userstat: { run: handlers.userstat.run, adminOnly: false },
 
   bpstat: { run: handlers.bpstat.run, adminOnly: true },
   setcode: { run: handlers.setcode.run, adminOnly: true },
